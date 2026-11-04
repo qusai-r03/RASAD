@@ -41,22 +41,22 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCjhOtvpbc375Vydg5qKboaF7wTI3z2EHA',
-    appId: '1:718051853280:web:64c02923ab6c9c70022185',
-    messagingSenderId: '718051853280',
-    projectId: 'rasd-city-reporter-2026',
-    authDomain: 'rasd-city-reporter-2026.firebaseapp.com',
-    storageBucket: 'rasd-city-reporter-2026.firebasestorage.app',
+    apiKey: 'AIzaSyBfyuZihxLFmLvwqQIEh02hrxk5GeX5J28',
+    appId: '1:237320156717:web:3894815a1047cd23826aa4',
+    messagingSenderId: '237320156717',
+    projectId: 'rasd-5896e',
+    authDomain: 'rasd-5896e.firebaseapp.com',
+    storageBucket: 'rasd-5896e.firebasestorage.app',
+    measurementId: 'G-QJ8YRDE1XT',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBxUOyABx4xR8Ucp_1JdWTOcAks70_-5tQ',
-    appId: '1:718051853280:android:b2735ceedf1c712e022185',
-    messagingSenderId: '718051853280',
-    projectId: 'rasd-city-reporter-2026',
-    storageBucket: 'rasd-city-reporter-2026.firebasestorage.app',
+    apiKey: 'AIzaSyAGCckTIB02bhr4W2HsVDA9_QCf3Nk4_Y4',
+    appId: '1:237320156717:android:cd8f99ef3efb5c76826aa4',
+    messagingSenderId: '237320156717',
+    projectId: 'rasd-5896e',
+    storageBucket: 'rasd-5896e.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyADIVh6yoQ8zOZ27U3vmvdaSfioN5aIFSQ',
     appId: '1:718051853280:ios:da15287a41f6bf75022185',

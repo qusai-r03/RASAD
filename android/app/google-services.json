@@ -1,13 +1,32 @@
 {
   "project_info": {
-    "project_number": "718051853280",
-    "project_id": "rasd-city-reporter-2026",
-    "storage_bucket": "rasd-city-reporter-2026.firebasestorage.app"
+    "project_number": "237320156717",
+    "project_id": "rasd-5896e",
+    "storage_bucket": "rasd-5896e.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:718051853280:android:b2735ceedf1c712e022185",
+        "mobilesdk_app_id": "1:237320156717:android:7b9333516c66a192826aa4",
+        "android_client_info": {
+          "package_name": "com.example.city_issue_reporter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAGCckTIB02bhr4W2HsVDA9_QCf3Nk4_Y4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:237320156717:android:cd8f99ef3efb5c76826aa4",
         "android_client_info": {
           "package_name": "com.rasd.city_issue_reporter"
         }
@@ -15,7 +34,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBxUOyABx4xR8Ucp_1JdWTOcAks70_-5tQ"
+          "current_key": "AIzaSyAGCckTIB02bhr4W2HsVDA9_QCf3Nk4_Y4"
         }
       ],
       "services": {
