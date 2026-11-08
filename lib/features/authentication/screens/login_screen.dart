@@ -12,7 +12,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final usernameController = TextEditingController();
+  final idController = TextEditingController();
   final passwordController = TextEditingController();
 
   bool isPasswordVisible = false;
@@ -23,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    usernameController.dispose();
+    idController.dispose();
     passwordController.dispose();
     super.dispose();
   }
@@ -37,18 +37,16 @@ class _LoginScreenState extends State<LoginScreen> {
   void validateLogin() {
     FocusScope.of(context).unfocus();
 
-    final username = usernameController.text.trim();
+    final id = idController.text.trim();
     final password = passwordController.text;
 
-    if (username.isEmpty) {
-      showMessage('الرجاء إدخال اسم المستخدم');
+    if (id.isEmpty) {
+      showMessage('الرجاء إدخال رقم الحساب (ID)');
       return;
     }
 
-    if (!RegExp(r'^[a-zA-Z0-9_]{3,20}$').hasMatch(username)) {
-      showMessage(
-        'اسم المستخدم يجب أن يكون من 3 إلى 20 حرفًا أو رقمًا إنجليزيًا',
-      );
+    if (!RegExp(r'^[0-9]{10}$').hasMatch(id)) {
+      showMessage('رقم الحساب (ID) يجب أن يتكون من 10 أرقام بالضبط');
       return;
     }
 
@@ -57,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Member 2 will connect Firebase Authentication here.
+    // Member 2 will connect ID-based Firebase Authentication here.
     // No real authentication happens at this stage.
 
     showMessage(
@@ -184,9 +182,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
                                   const SizedBox(height: 25),
 
-                                  // Username field
+                                  // ID field
                                   const Text(
-                                    'اسم المستخدم',
+                                    'رقم الحساب (ID)',
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -197,22 +195,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                   const SizedBox(height: 8),
 
                                   TextField(
-                                    controller: usernameController,
-                                    keyboardType: TextInputType.text,
+                                    controller: idController,
+                                    keyboardType: TextInputType.number,
                                     textDirection: TextDirection.ltr,
                                     textAlign: TextAlign.right,
                                     textInputAction: TextInputAction.next,
                                     autocorrect: false,
                                     inputFormatters: [
-                                      FilteringTextInputFormatter.allow(
-                                        RegExp(r'[a-zA-Z0-9_]'),
-                                      ),
-                                      LengthLimitingTextInputFormatter(20),
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(10),
                                     ],
                                     decoration: InputDecoration(
-                                      hintText: 'Username',
+                                      hintText: '10-digit ID',
                                       prefixIcon: const Icon(
-                                        Icons.person_outline,
+                                        Icons.badge_outlined,
                                       ),
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(14),
