@@ -23,13 +23,6 @@ class RoleDashboard extends StatelessWidget {
           description: 'Welcome to RASD Municipality Dashboard',
           icon: Icons.business,
         );
-
-      case UserRole.admin:
-        return const _TemporaryDashboard(
-          title: 'Admin Dashboard',
-          description: 'Administrator access',
-          icon: Icons.admin_panel_settings,
-        );
     }
   }
 }

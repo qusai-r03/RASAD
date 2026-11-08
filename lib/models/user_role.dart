@@ -1,1 +1,1 @@
-enum UserRole { citizen, employee, admin }
+enum UserRole { citizen, employee }

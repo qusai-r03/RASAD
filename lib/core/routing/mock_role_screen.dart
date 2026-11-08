@@ -40,15 +40,6 @@ class MockRoleScreen extends StatelessWidget {
               },
               child: const Text('Employee'),
             ),
-
-            const SizedBox(height: 15),
-
-            ElevatedButton(
-              onPressed: () {
-                selectUser(MockUsers.admin);
-              },
-              child: const Text('Admin'),
-            ),
             const SizedBox(height: 30),
 
             ListenableBuilder(

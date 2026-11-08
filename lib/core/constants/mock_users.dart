@@ -11,9 +11,4 @@ class MockUsers {
     id: 'mock_employee_001',
     role: UserRole.employee,
   );
-
-  static const AppUser admin = AppUser(
-    id: 'mock_admin_001',
-    role: UserRole.admin,
-  );
 }

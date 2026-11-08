@@ -9,7 +9,6 @@ enum AppPermission {
   updateReportStatus,
   correctReportCategory,
   adjustReportPriority,
-  manageEmployees,
 }
 
 class RolePermissions {
@@ -27,8 +26,6 @@ class RolePermissions {
       AppPermission.correctReportCategory,
       AppPermission.adjustReportPriority,
     },
-
-    UserRole.admin: {AppPermission.manageEmployees},
   };
 
   // Returns false if the role has no permissions or the permission is not granted.
