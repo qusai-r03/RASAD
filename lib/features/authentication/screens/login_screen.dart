@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/services/auth_api_service.dart';
+
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -16,6 +18,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final passwordController = TextEditingController();
 
   bool isPasswordVisible = false;
+  bool isLoggingIn = false;
+
+  final AuthApiService authApi = AuthApiService();
 
   static const navy = Color(0xFF123B5D);
   static const blue = Color(0xFF0057C8);
@@ -34,7 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void validateLogin() {
+  Future<void> validateLogin() async {
+    if (isLoggingIn) return;
+
     FocusScope.of(context).unfocus();
 
     final username = usernameController.text.trim();
@@ -57,12 +64,23 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Member 2 will connect Firebase Authentication here.
-    // No real authentication happens at this stage.
+    setState(() => isLoggingIn = true);
 
-    showMessage(
-      'تم التحقق من الحقول. تسجيل الدخول الفعلي بانتظار ربط Firebase',
-    );
+    try {
+      await authApi.login(username: username, password: password);
+
+      if (!mounted) return;
+
+      showMessage('تم تسجيل الدخول بنجاح');
+    } catch (e) {
+      if (!mounted) return;
+
+      showMessage('فشل تسجيل الدخول. تحقق من البيانات أو اتصال الخادم.');
+    } finally {
+      if (mounted) {
+        setState(() => isLoggingIn = false);
+      }
+    }
   }
 
   @override
@@ -300,7 +318,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   SizedBox(
                                     height: 55,
                                     child: ElevatedButton(
-                                      onPressed: validateLogin,
+                                      onPressed: isLoggingIn
+                                          ? null
+                                          : validateLogin,
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: blue,
                                         foregroundColor: Colors.white,
@@ -310,13 +330,22 @@ class _LoginScreenState extends State<LoginScreen> {
                                           ),
                                         ),
                                       ),
-                                      child: const Text(
-                                        'تسجيل الدخول',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
+                                      child: isLoggingIn
+                                          ? const SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : const Text(
+                                              'تسجيل الدخول',
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
                                     ),
                                   ),
 

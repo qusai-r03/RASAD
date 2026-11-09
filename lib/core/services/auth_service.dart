@@ -3,25 +3,29 @@ import 'package:firebase_auth/firebase_auth.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Get the currently authenticated user.
   User? get currentUser => _auth.currentUser;
 
-  // Listen for login and logout changes.
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // Basic Firebase password login.
-  // The final RASD login will use usernames instead.
-  Future<UserCredential> signInWithInternalEmail({
-    required String internalEmail,
-    required String password,
-  }) async {
-    return _auth.signInWithEmailAndPassword(
-      email: internalEmail,
-      password: password,
-    );
+  // Complete Firebase sign-in using a token issued
+  // by RASD's trusted username/password backend.
+  Future<UserCredential> signInWithCustomToken({required String token}) async {
+    return _auth.signInWithCustomToken(token);
   }
 
-  // Sign out the current user.
+  // Read the role assigned by the trusted backend.
+  Future<String?> getCurrentUserRole() async {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      return null;
+    }
+
+    final idToken = await user.getIdTokenResult(true);
+
+    return idToken.claims?['role'] as String?;
+  }
+
   Future<void> signOut() async {
     await _auth.signOut();
   }
