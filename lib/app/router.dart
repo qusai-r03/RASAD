@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/authentication/screens/login_screen.dart';
 import '../core/constants/role_permissions.dart';
 import '../core/routing/role_guard.dart';
-import '../core/routing/mock_role_screen.dart';
 import '../core/routing/role_dashboard.dart';
 import '../core/services/role_service.dart';
 
@@ -18,23 +18,29 @@ final GoRouter appRouter = GoRouter(
     final role = roleService.getCurrentUserRole();
     final path = state.uri.path;
 
-    // Redirect from the initial page.
+    // Open login if the user is not authenticated.
     if (path == '/') {
-      return role == null ? '/mock-role' : '/dashboard';
+      return role == null ? '/login' : '/dashboard';
     }
 
-    // Redirect selected users to their dashboard.
-    if (path == '/mock-role' && role != null) {
+    // Already signed-in users go to their dashboard.
+    if (path == '/login' && role != null) {
       return '/dashboard';
     }
 
-    // Prevent access to the dashboard without a user.
+    // Protect the dashboard.
     if (path == '/dashboard' && role == null) {
-      return '/mock-role';
+      return '/login';
+    }
+
+    // Protect employee-only routes.
+    if (path.startsWith('/employee/') && role == null) {
+      return '/login';
     }
 
     return null;
   },
+
   routes: [
     GoRoute(
       path: '/',
@@ -43,32 +49,24 @@ final GoRouter appRouter = GoRouter(
       },
     ),
 
-    GoRoute(
-      path: '/login',
-      builder: (context, state) {
-        return const Scaffold(body: Center(child: Text('Login Screen')));
-      },
-    ),
+    // Ghazal's original login screen.
+    GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
 
-    GoRoute(
-      path: '/mock-role',
-      builder: (context, state) {
-        return MockRoleScreen(roleService: roleService);
-      },
-    ),
-
+    // Citizen or employee dashboard based on role.
     GoRoute(
       path: '/dashboard',
       builder: (context, state) {
         final role = roleService.getCurrentUserRole();
 
         if (role == null) {
-          return const Scaffold(body: Center(child: Text('No user selected')));
+          return const Scaffold(body: Center(child: Text('Not authenticated')));
         }
 
         return RoleDashboard(role: role);
       },
     ),
+
+    // Employee reports.
     GoRoute(
       path: '/employee/reports',
       builder: (context, state) {

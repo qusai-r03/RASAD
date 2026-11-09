@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/services/auth_api_service.dart';
-
+import '../../../core/services/auth_service.dart';
+import '../../../app/router.dart';
+import '../../../models/app_user.dart';
+import '../../../models/user_role.dart';
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -14,13 +18,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final usernameController = TextEditingController();
+  final idController = TextEditingController();
   final passwordController = TextEditingController();
 
   bool isPasswordVisible = false;
-  bool isLoggingIn = false;
-
-  final AuthApiService authApi = AuthApiService();
 
   static const navy = Color(0xFF123B5D);
   static const blue = Color(0xFF0057C8);
@@ -28,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    usernameController.dispose();
+    idController.dispose();
     passwordController.dispose();
     super.dispose();
   }
@@ -40,22 +41,19 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> validateLogin() async {
-    if (isLoggingIn) return;
-
     FocusScope.of(context).unfocus();
 
-    final username = usernameController.text.trim();
+    final id = idController.text.trim();
     final password = passwordController.text;
 
-    if (username.isEmpty) {
-      showMessage('الرجاء إدخال اسم المستخدم');
+    // Keep Ghazal's input validation.
+    if (id.isEmpty) {
+      showMessage('الرجاء إدخال الرقم الوطني');
       return;
     }
 
-    if (!RegExp(r'^[a-zA-Z0-9_]{3,20}$').hasMatch(username)) {
-      showMessage(
-        'اسم المستخدم يجب أن يكون من 3 إلى 20 حرفًا أو رقمًا إنجليزيًا',
-      );
+    if (!RegExp(r'^[0-9]{10}$').hasMatch(id)) {
+      showMessage('الرقم الوطني يجب أن يتكون من 10 أرقام بالضبط');
       return;
     }
 
@@ -64,23 +62,44 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    setState(() => isLoggingIn = true);
-
     try {
-      await authApi.login(username: username, password: password);
+      // Sign in through Firebase Authentication.
+      final result = await AuthService().login(
+        nationalId: id,
+        password: password,
+      );
 
       if (!mounted) return;
 
-      showMessage('تم تسجيل الدخول بنجاح');
-    } catch (e) {
+      // Identify the user's role.
+      roleService.setMockUser(
+        AppUser(
+          id: result.uid,
+          role: result.role == 'employee'
+              ? UserRole.employee
+              : UserRole.citizen,
+        ),
+      );
+
+      // Navigate to the appropriate dashboard.
+      context.go('/dashboard');
+    } on FirebaseAuthException catch (error) {
       if (!mounted) return;
 
-      showMessage('فشل تسجيل الدخول. تحقق من البيانات أو اتصال الخادم.');
-    } finally {
-      if (mounted) {
-        setState(() => isLoggingIn = false);
+      if (error.code == 'invalid-credential' ||
+          error.code == 'wrong-password' ||
+          error.code == 'user-not-found') {
+        showMessage('الرقم الوطني أو كلمة المرور غير صحيحة');
+      } else {
+        showMessage('تعذر تسجيل الدخول. يرجى المحاولة مرة أخرى');
       }
-    }
+    } catch (error, stackTrace) {
+  debugPrint('RASD LOGIN ERROR: $error');
+  debugPrintStack(stackTrace: stackTrace);
+
+  if (!mounted) return;
+  showMessage('تعذر تسجيل الدخول. تحقق من حالة الحساب');
+}
   }
 
   @override
@@ -202,9 +221,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
                                   const SizedBox(height: 25),
 
-                                  // Username field
+                                  // ID field
                                   const Text(
-                                    'اسم المستخدم',
+                                    'رقم الحساب (ID)',
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -215,22 +234,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                   const SizedBox(height: 8),
 
                                   TextField(
-                                    controller: usernameController,
-                                    keyboardType: TextInputType.text,
+                                    controller: idController,
+                                    keyboardType: TextInputType.number,
                                     textDirection: TextDirection.ltr,
                                     textAlign: TextAlign.right,
                                     textInputAction: TextInputAction.next,
                                     autocorrect: false,
                                     inputFormatters: [
-                                      FilteringTextInputFormatter.allow(
-                                        RegExp(r'[a-zA-Z0-9_]'),
-                                      ),
-                                      LengthLimitingTextInputFormatter(20),
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(10),
                                     ],
                                     decoration: InputDecoration(
-                                      hintText: 'Username',
+                                      hintText: '10-digit ID',
                                       prefixIcon: const Icon(
-                                        Icons.person_outline,
+                                        Icons.badge_outlined,
                                       ),
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(14),
@@ -318,9 +335,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   SizedBox(
                                     height: 55,
                                     child: ElevatedButton(
-                                      onPressed: isLoggingIn
-                                          ? null
-                                          : validateLogin,
+                                      onPressed: validateLogin,
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: blue,
                                         foregroundColor: Colors.white,
@@ -330,22 +345,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                           ),
                                         ),
                                       ),
-                                      child: isLoggingIn
-                                          ? const SizedBox(
-                                              width: 24,
-                                              height: 24,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                color: Colors.white,
-                                              ),
-                                            )
-                                          : const Text(
-                                              'تسجيل الدخول',
-                                              style: TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
+                                      child: const Text(
+                                        'تسجيل الدخول',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   ),
 

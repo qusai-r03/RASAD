@@ -17,7 +17,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final lastNameController = TextEditingController();
   final dobController = TextEditingController();
   final phoneController = TextEditingController();
-  final usernameController = TextEditingController();
+  final idController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
 
@@ -36,7 +36,7 @@ class _SignupScreenState extends State<SignupScreen> {
     lastNameController.dispose();
     dobController.dispose();
     phoneController.dispose();
-    usernameController.dispose();
+    idController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
     super.dispose();
@@ -58,12 +58,33 @@ class _SignupScreenState extends State<SignupScreen> {
     if (date != null && mounted) {
       setState(() {
         selectedDate = date;
+
         dobController.text =
             '${date.year}-'
             '${date.month.toString().padLeft(2, '0')}-'
             '${date.day.toString().padLeft(2, '0')}';
       });
     }
+  }
+
+  String? validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'الرجاء إدخال كلمة المرور';
+    }
+
+    if (value.length < 8) {
+      return 'كلمة المرور يجب أن تكون 8 أحرف على الأقل';
+    }
+
+    if (!RegExp(r'[0-9]').hasMatch(value)) {
+      return 'كلمة المرور يجب أن تحتوي على رقم واحد على الأقل';
+    }
+
+    if (!RegExp(r'[^a-zA-Z0-9\s]').hasMatch(value)) {
+      return 'كلمة المرور يجب أن تحتوي على رمز خاص واحد على الأقل';
+    }
+
+    return null;
   }
 
   void validateSignup() {
@@ -74,6 +95,8 @@ class _SignupScreenState extends State<SignupScreen> {
     }
 
     // Demo only: no Firebase account is created.
+    // Member 2 must check ID uniqueness and link the ID to Firebase.
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -143,7 +166,9 @@ class _SignupScreenState extends State<SignupScreen> {
               color: navy,
             ),
           ),
+
           const SizedBox(height: 7),
+
           TextFormField(
             controller: controller,
             keyboardType: keyboardType,
@@ -232,6 +257,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
                       const SizedBox(height: 25),
 
+                      // White signup card
                       Container(
                         width: double.infinity,
                         constraints: const BoxConstraints(maxWidth: 450),
@@ -332,7 +358,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                   LengthLimitingTextInputFormatter(10),
                                 ],
                                 validator: (value) {
-                                  if (value == null || value.isEmpty) {
+                                  if (value == null || value.trim().isEmpty) {
                                     return 'الرجاء إدخال رقم الهاتف';
                                   }
 
@@ -345,32 +371,26 @@ class _SignupScreenState extends State<SignupScreen> {
                                 },
                               ),
 
-                              // 5. Username - Letters and numbers ONLY
+                              // 5. ID
                               buildField(
-                                label: 'اسم المستخدم',
-                                controller: usernameController,
-                                icon: Icons.account_circle_outlined,
-                                hint: 'Username',
-                                keyboardType: TextInputType.text,
-
-                                // Prevent symbols while typing.
+                                label: 'رقم الحساب (ID)',
+                                controller: idController,
+                                icon: Icons.badge_outlined,
+                                hint: '10-digit ID',
+                                keyboardType: TextInputType.number,
                                 inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                    RegExp(r'[a-zA-Z0-9]'),
-                                  ),
-                                  LengthLimitingTextInputFormatter(20),
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(10),
                                 ],
-
                                 validator: (value) {
-                                  final username = value?.trim() ?? '';
+                                  final id = value?.trim() ?? '';
 
-                                  if (username.isEmpty) {
-                                    return 'الرجاء إدخال اسم المستخدم';
+                                  if (id.isEmpty) {
+                                    return 'الرجاء إدخال رقم الحساب (ID)';
                                   }
 
-                                  if (!RegExp(r'^[a-zA-Z0-9]{3,20}$')
-                                      .hasMatch(username)) {
-                                    return 'اسم المستخدم يجب أن يكون من 3 إلى 20 حرفًا أو رقمًا إنجليزيًا فقط';
+                                  if (!RegExp(r'^[0-9]{10}$').hasMatch(id)) {
+                                    return 'رقم الحساب (ID) يجب أن يتكون من 10 أرقام بالضبط';
                                   }
 
                                   return null;
@@ -396,17 +416,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                     });
                                   },
                                 ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'الرجاء إدخال كلمة المرور';
-                                  }
-
-                                  if (value.length < 8) {
-                                    return 'كلمة المرور يجب أن تكون 8 أحرف على الأقل';
-                                  }
-
-                                  return null;
-                                },
+                                validator: validatePassword,
                               ),
 
                               // 7. Confirm Password
@@ -474,7 +484,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
                               const SizedBox(height: 24),
 
-                              // Create Account
+                              // Create Account button
                               SizedBox(
                                 height: 55,
                                 child: ElevatedButton(

@@ -1,96 +1,78 @@
-from fastapi import HTTPException, status
+import firebase_admin
+
+from fastapi import HTTPException
 from firebase_admin import auth, firestore
 from pwdlib import PasswordHash
 
+from backend.auth.schemas import LoginRequest
+
+
 password_hash = PasswordHash.recommended()
 
-INVALID_LOGIN = HTTPException(
-    status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="Invalid username or password",
-)
+
+def get_rasd_db():
+    rasd_app = firebase_admin.get_app()
+    return firestore.client(app=rasd_app)
 
 
-def login_user(username: str, password: str) -> dict:
-    db = firestore.client()
+def login_with_national_id(data: LoginRequest):
+    db = get_rasd_db()
 
-    normalized_username = username.strip().lower()
-
-    # Find the username in our global username index.
-    username_doc = (
-        db.collection("usernames")
-        .document(normalized_username)
-        .get()
-    )
-
-    if not username_doc.exists:
-        raise INVALID_LOGIN
-
-    username_data = username_doc.to_dict()
-    uid = username_data.get("uid")
-    role = username_data.get("role")
-
-    if not isinstance(uid, str) or role not in ("citizen", "employee"):
-        raise INVALID_LOGIN
-
-    # Credentials are kept separately from public profile data.
-    credentials_doc = (
+    # Search the backend-private credentials collection.
+    credentials = (
         db.collection("auth_credentials")
-        .document(uid)
+        .where("nationalId", "==", data.nationalId)
+        .limit(2)
         .get()
     )
 
-    if not credentials_doc.exists:
-        raise INVALID_LOGIN
+    if len(credentials) != 1:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid National ID or password",
+        )
 
-    stored_hash = credentials_doc.to_dict().get("passwordHash")
+    account = credentials[0].to_dict()
 
-    if not stored_hash:
-        raise INVALID_LOGIN
+    stored_hash = account.get("passwordHash")
+    user_id = account.get("authUid")
+    role = account.get("role")
+
+    if not stored_hash or not user_id or role not in ("citizen", "employee"):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid National ID or password",
+        )
 
     try:
-        valid_password = password_hash.verify(password, stored_hash)
-    except (ValueError, TypeError):
-        raise INVALID_LOGIN
+        valid_password = password_hash.verify(
+            data.password,
+            stored_hash,
+        )
+    except Exception:
+        valid_password = False
 
     if not valid_password:
-        raise INVALID_LOGIN
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid National ID or password",
+        )
 
-    # Read the trusted profile and verify its role and status.
-    collection = "citizens" if role == "citizen" else "employees"
+    if account.get("status") != "active":
+        raise HTTPException(
+            status_code=403,
+            detail="Account is not active",
+        )
 
-    profile_doc = db.collection(collection).document(uid).get()
-
-    if not profile_doc.exists:
-        raise INVALID_LOGIN
-
-    profile = profile_doc.to_dict()
-
-    if (
-        profile.get("role") != role
-        or profile.get("status") != "active"
-        or profile.get("username", "").strip().lower()
-        != normalized_username
-    ):
-        raise INVALID_LOGIN
-
-    # Verify that the Firebase Authentication account is enabled.
-    try:
-        firebase_user = auth.get_user(uid)
-    except auth.UserNotFoundError:
-        raise INVALID_LOGIN
-
-    if firebase_user.disabled:
-        raise INVALID_LOGIN
-
-    # Role is determined by trusted backend data.
-    token = auth.create_custom_token(
-        uid,
+    # The role comes from the backend, never from the login form.
+    custom_token = auth.create_custom_token(
+        user_id,
         developer_claims={"role": role},
     )
 
     return {
-        "customToken": token.decode("utf-8"),
-        "userId": uid,
-        "username": normalized_username,
+        "customToken": custom_token.decode("utf-8"),
+        "userId": user_id,
+        "nationalId": data.nationalId,
         "role": role,
     }
