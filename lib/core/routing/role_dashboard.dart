@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../models/user_role.dart';
+import '../services/auth_service.dart';
+import '../../app/router.dart';
 
 class RoleDashboard extends StatelessWidget {
   final UserRole role;
@@ -38,10 +40,35 @@ class _TemporaryDashboard extends StatelessWidget {
     required this.icon,
   });
 
+  Future<void> logout(BuildContext context) async {
+    try {
+      await AuthService().signOut();
+
+      roleService.completeSessionRestore(null);
+    } catch (error) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to sign out. Please try again.'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        title: Text(title),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
+            onPressed: () => logout(context),
+          ),
+        ],
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
