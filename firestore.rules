@@ -1,0 +1,73 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+function isActiveCitizen() {
+  return request.auth != null
+    && exists(
+      /databases/$(database)/documents/citizens/$(request.auth.uid)
+    )
+    && get(
+      /databases/$(database)/documents/citizens/$(request.auth.uid)
+    ).data.role == 'citizen'
+    && get(
+      /databases/$(database)/documents/citizens/$(request.auth.uid)
+    ).data.accountStatus == 'active';
+}
+
+function isActiveEmployee() {
+  return request.auth != null
+    && exists(
+      /databases/$(database)/documents/employees/$(request.auth.uid)
+    )
+    && get(
+      /databases/$(database)/documents/employees/$(request.auth.uid)
+    ).data.role == 'employee'
+    && get(
+      /databases/$(database)/documents/employees/$(request.auth.uid)
+    ).data.accountStatus == 'active';
+}
+
+
+    // Citizens can read only their own profile.
+    match /citizens/{userId} {
+      allow get: if request.auth != null
+                 && request.auth.uid == userId;
+
+      allow list, create, update, delete: if false;
+    }
+
+    // Employees can read only their own profile.
+    match /employees/{userId} {
+      allow get: if request.auth != null
+                 && request.auth.uid == userId;
+
+      allow list, create, update, delete: if false;
+    }
+
+    // Only the report owner can read the report.
+
+
+match /reports/{reportId} {
+
+  allow get, list: if
+    (
+      isActiveCitizen()
+      && resource.data.citizenId == request.auth.uid
+    )
+    ||
+    (
+      isActiveEmployee()
+      && resource.data.municipalityId ==
+         get(
+           /databases/$(database)/documents/employees/$(request.auth.uid)
+         ).data.municipalityId
+    );
+
+  allow create, update, delete: if false;
+}
+
+  }
+}

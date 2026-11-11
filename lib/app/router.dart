@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/complaints/screens/reports_screen.dart';
+
 import '../models/user_role.dart';
 import '../features/authentication/screens/login_screen.dart';
 import '../core/constants/role_permissions.dart';
@@ -89,7 +91,26 @@ final GoRouter appRouter = GoRouter(
         );
       },
     ),
+    GoRoute(
+      path: '/reports',
+      builder: (context, state) {
+        final role = roleService.getCurrentUserRole();
 
+        if (role == null) {
+          return const Scaffold(body: Center(child: Text('Not authenticated')));
+        }
+
+        final permission = role == UserRole.citizen
+            ? AppPermission.viewOwnReports
+            : AppPermission.viewMunicipalityReports;
+
+        return RoleGuard(
+          roleService: roleService,
+          requiredPermission: permission,
+          child: const ReportsScreen(),
+        );
+      },
+    ),
     // Employee reports.
     GoRoute(
       path: '/employee/reports',

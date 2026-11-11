@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../models/user_role.dart';
 import '../services/auth_service.dart';
@@ -49,9 +50,7 @@ class _TemporaryDashboard extends StatelessWidget {
       if (!context.mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to sign out. Please try again.'),
-        ),
+        const SnackBar(content: Text('Unable to sign out. Please try again.')),
       );
     }
   }
@@ -79,6 +78,12 @@ class _TemporaryDashboard extends StatelessWidget {
               description,
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 20),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => context.go('/reports'),
+              icon: const Icon(Icons.assignment_outlined),
+              label: const Text('View Reports'),
             ),
           ],
         ),

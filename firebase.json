@@ -1,1 +1,40 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"rasd-5896e","appId":"1:237320156717:android:cd8f99ef3efb5c76826aa4","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"rasd-5896e","configurations":{"android":"1:237320156717:android:cd8f99ef3efb5c76826aa4","web":"1:237320156717:web:3894815a1047cd23826aa4"}}}}}}
+﻿{
+    "flutter":  {
+                    "platforms":  {
+                                      "android":  {
+                                                      "default":  {
+                                                                      "projectId":  "rasd-5896e",
+                                                                      "appId":  "1:237320156717:android:cd8f99ef3efb5c76826aa4",
+                                                                      "fileOutput":  "android/app/google-services.json"
+                                                                  }
+                                                  },
+                                      "dart":  {
+                                                   "lib/firebase_options.dart":  {
+                                                                                     "projectId":  "rasd-5896e",
+                                                                                     "configurations":  {
+                                                                                                            "android":  "1:237320156717:android:cd8f99ef3efb5c76826aa4",
+                                                                                                            "web":  "1:237320156717:web:3894815a1047cd23826aa4"
+                                                                                                        }
+                                                                                 }
+                                               }
+                                  }
+                },
+    "firestore":  {
+                      "rules":  "firestore.rules"
+                  },
+
+"emulators": {
+  "auth": {
+    "host": "127.0.0.1",
+    "port": 9099
+  },
+  "firestore": {
+    "host": "127.0.0.1",
+    "port": 8080
+  },
+  "ui": {
+    "port": 4000,
+    "enabled": true
+  }
+}
+}
