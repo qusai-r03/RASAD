@@ -53,3 +53,11 @@ backend/*serviceAccount*.json
 backend/*service-account*.json
 # Node.js dependencies
 **/node_modules/
+# Firebase Emulator local data
+/emulator_data/
+/firebase-debug.log
+/firestore-debug.log
+/ui-debug.log
+
+# Firebase Emulator temporary files
+/firebase-export-*/

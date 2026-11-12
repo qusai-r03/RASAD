@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/user_role.dart';
 import '../services/auth_service.dart';
 import '../../app/router.dart';
+import '../../features/home/citizen_home_screen.dart';
 
 class RoleDashboard extends StatelessWidget {
   final UserRole role;
@@ -14,11 +15,7 @@ class RoleDashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (role) {
       case UserRole.citizen:
-        return const _TemporaryDashboard(
-          title: 'Citizen Home',
-          description: 'Welcome to RASD Citizen Dashboard',
-          icon: Icons.person,
-        );
+        return const CitizenHomeScreen();
 
       case UserRole.employee:
         return const _TemporaryDashboard(

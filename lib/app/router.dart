@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/profile/profile_screen.dart';
 import '../features/complaints/screens/reports_screen.dart';
-
+import '../shared/widgets/citizen_shell.dart';
 import '../models/user_role.dart';
 import '../features/authentication/screens/login_screen.dart';
 import '../core/constants/role_permissions.dart';
@@ -41,10 +42,11 @@ final GoRouter appRouter = GoRouter(
     }
 
     // Protect the dashboard.
-    if (path == '/dashboard' && role == null) {
+    // Protect authenticated application pages.
+    if ((path == '/dashboard' || path == '/reports' || path == '/profile') &&
+        role == null) {
       return '/login';
     }
-
     // Protect employee-only routes.
     if (path.startsWith('/employee/') && role == null) {
       return '/login';
@@ -69,48 +71,90 @@ final GoRouter appRouter = GoRouter(
 
     // Ghazal's original login screen.
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
-
-    // Citizen or employee dashboard based on role.
-    GoRoute(
-      path: '/dashboard',
-      builder: (context, state) {
+    ShellRoute(
+      builder: (context, state, child) {
         final role = roleService.getCurrentUserRole();
 
-        if (role == null) {
-          return const Scaffold(body: Center(child: Text('Not authenticated')));
+        // Citizen pages share one persistent bottom navigation bar.
+        if (role == UserRole.citizen) {
+          return CitizenShell(child: child);
         }
 
-        final permission = role == UserRole.citizen
-            ? AppPermission.viewCitizenHome
-            : AppPermission.viewEmployeeHome;
-
-        return RoleGuard(
-          roleService: roleService,
-          requiredPermission: permission,
-          child: RoleDashboard(role: role),
-        );
+        // Employee pages keep their own layout.
+        return child;
       },
+      routes: [
+        // Citizen or employee dashboard based on role.
+        GoRoute(
+          path: '/dashboard',
+          builder: (context, state) {
+            final role = roleService.getCurrentUserRole();
+
+            if (role == null) {
+              return const Scaffold(
+                body: Center(child: Text('Not authenticated')),
+              );
+            }
+
+            final permission = role == UserRole.citizen
+                ? AppPermission.viewCitizenHome
+                : AppPermission.viewEmployeeHome;
+
+            return RoleGuard(
+              roleService: roleService,
+              requiredPermission: permission,
+              child: RoleDashboard(role: role),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/reports',
+          builder: (context, state) {
+            final role = roleService.getCurrentUserRole();
+
+            if (role == null) {
+              return const Scaffold(
+                body: Center(child: Text('Not authenticated')),
+              );
+            }
+
+            final permission = role == UserRole.citizen
+                ? AppPermission.viewOwnReports
+                : AppPermission.viewMunicipalityReports;
+
+            return RoleGuard(
+              roleService: roleService,
+              requiredPermission: permission,
+              child: const ReportsScreen(),
+            );
+          },
+        ),
+
+        GoRoute(
+          path: '/profile',
+          builder: (context, state) {
+            final role = roleService.getCurrentUserRole();
+
+            if (role == null) {
+              return const Scaffold(
+                body: Center(child: Text('Not authenticated')),
+              );
+            }
+
+            final permission = role == UserRole.citizen
+                ? AppPermission.viewCitizenHome
+                : AppPermission.viewEmployeeHome;
+
+            return RoleGuard(
+              roleService: roleService,
+              requiredPermission: permission,
+              child: const ProfileScreen(),
+            );
+          },
+        ),
+      ],
     ),
-    GoRoute(
-      path: '/reports',
-      builder: (context, state) {
-        final role = roleService.getCurrentUserRole();
 
-        if (role == null) {
-          return const Scaffold(body: Center(child: Text('Not authenticated')));
-        }
-
-        final permission = role == UserRole.citizen
-            ? AppPermission.viewOwnReports
-            : AppPermission.viewMunicipalityReports;
-
-        return RoleGuard(
-          roleService: roleService,
-          requiredPermission: permission,
-          child: const ReportsScreen(),
-        );
-      },
-    ),
     // Employee reports.
     GoRoute(
       path: '/employee/reports',
