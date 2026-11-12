@@ -90,7 +90,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   report,
                 ) {
                   return selectedStatus == 'All' ||
-                      report.status == selectedStatus;
+                      report.status.trim().toLowerCase() ==
+                          selectedStatus.trim().toLowerCase();
                 }).toList();
 
                 if (reports.isEmpty) {

@@ -31,13 +31,15 @@ class CitizenHomeService {
     return CitizenHomeData(
       reports: reports,
       pendingCount: reports
-          .where((report) => report.status.toLowerCase() == 'pending')
+          .where((report) => report.status.trim().toLowerCase() == 'pending')
           .length,
       inProgressCount: reports
-          .where((report) => report.status.toLowerCase() == 'in progress')
+          .where(
+            (report) => report.status.trim().toLowerCase() == 'in progress',
+          )
           .length,
       resolvedCount: reports
-          .where((report) => report.status.toLowerCase() == 'resolved')
+          .where((report) => report.status.trim().toLowerCase() == 'resolved')
           .length,
     );
   }

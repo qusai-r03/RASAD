@@ -1,5 +1,6 @@
 
 const fs = require('node:fs');
+const path = require('node:path');
 
 const {
   initializeTestEnvironment,
@@ -25,8 +26,10 @@ async function main() {
     firestore: {
       host: '127.0.0.1',
       port: 8080,
-      rules: fs.readFileSync('../../firestore.rules', 'utf8'),
-    },
+rules: fs.readFileSync(
+  path.resolve(__dirname, '../../firestore.rules'),
+  'utf8'
+),    },
   });
 
   try {
