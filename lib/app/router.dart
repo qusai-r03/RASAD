@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../shared/widgets/employee_shell.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/complaints/screens/reports_screen.dart';
 import '../shared/widgets/citizen_shell.dart';
@@ -75,12 +76,14 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state, child) {
         final role = roleService.getCurrentUserRole();
 
-        // Citizen pages share one persistent bottom navigation bar.
         if (role == UserRole.citizen) {
           return CitizenShell(child: child);
         }
 
-        // Employee pages keep their own layout.
+        if (role == UserRole.employee) {
+          return EmployeeShell(child: child);
+        }
+
         return child;
       },
       routes: [
