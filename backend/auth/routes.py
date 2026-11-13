@@ -1,16 +1,9 @@
 from fastapi import APIRouter
 
-from backend.auth.schemas import (
-    LoginRequest,
-    LoginResponse,
+router = APIRouter(
+    prefix="/auth",
+    tags=["Authentication"],
 )
 
-from backend.auth.service import login_with_national_id
-
-
-router = APIRouter(prefix="/auth", tags=["Authentication"])
-
-
-@router.post("/login", response_model=LoginResponse)
-def login(data: LoginRequest):
-    return login_with_national_id(data)
+# Login is handled directly by Firebase Authentication in Flutter.
+# Government identity verification endpoints will be added here later.
