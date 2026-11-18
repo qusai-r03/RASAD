@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/router.dart';
 import '../../../core/services/report_service.dart';
@@ -105,12 +106,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   itemBuilder: (context, index) {
                     final report = reports[index];
 
-                    return ReportCard(
-                      reportId: report.reportId,
-                      category: report.category,
-                      status: report.status,
-                      date:
-                          '${report.createdAt.day}/${report.createdAt.month}/${report.createdAt.year}',
+                    return InkWell(
+                      onTap: () {
+                        context.push(
+                          '/reports/${Uri.encodeComponent(report.reportId)}',
+                        );
+                      },
+                      child: ReportCard(
+                        reportId: report.reportId,
+                        category: report.category,
+                        status: report.status,
+                        date:
+                            '${report.createdAt.day}/${report.createdAt.month}/${report.createdAt.year}',
+                      ),
                     );
                   },
                 );

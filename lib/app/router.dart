@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/complaints/screens/report_details_screen.dart';
 import '../shared/widgets/employee_shell.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/complaints/screens/reports_screen.dart';
@@ -44,7 +45,10 @@ final GoRouter appRouter = GoRouter(
 
     // Protect the dashboard.
     // Protect authenticated application pages.
-    if ((path == '/dashboard' || path == '/reports' || path == '/profile') &&
+    if ((path == '/dashboard' ||
+            path == '/reports' ||
+            path.startsWith('/reports/') ||
+            path == '/profile') &&
         role == null) {
       return '/login';
     }
@@ -132,7 +136,30 @@ final GoRouter appRouter = GoRouter(
             );
           },
         ),
+        GoRoute(
+          path: '/reports/:reportId',
+          builder: (context, state) {
+            final role = roleService.getCurrentUserRole();
 
+            if (role == null) {
+              return const Scaffold(
+                body: Center(child: Text('Not authenticated')),
+              );
+            }
+
+            final permission = role == UserRole.citizen
+                ? AppPermission.viewOwnReports
+                : AppPermission.viewMunicipalityReports;
+
+            final reportId = state.pathParameters['reportId']!;
+
+            return RoleGuard(
+              roleService: roleService,
+              requiredPermission: permission,
+              child: ReportDetailsScreen(reportId: reportId),
+            );
+          },
+        ),
         GoRoute(
           path: '/profile',
           builder: (context, state) {
