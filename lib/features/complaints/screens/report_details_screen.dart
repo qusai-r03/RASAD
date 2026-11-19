@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/router.dart';
+import '../../../models/user_role.dart';
+import '../widgets/employee_report_editing_panel.dart';
 import '../../../core/services/report_service.dart';
 import '../../../models/report_model.dart';
 
@@ -30,6 +33,26 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
     if (oldWidget.reportId != widget.reportId) {
       _reportFuture = _reportService.getReportById(widget.reportId);
     }
+  }
+
+  Future<void> _savePriority({
+    required String category,
+    required String priority,
+  }) async {
+    if (roleService.getCurrentUserRole() != UserRole.employee) {
+      throw StateError('Only employees can update report priority.');
+    }
+
+    await _reportService.updateReportPriority(
+      reportId: widget.reportId,
+      priority: priority,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _reportFuture = _reportService.getReportById(widget.reportId);
+    });
   }
 
   String _formatDate(DateTime date) {
@@ -121,6 +144,17 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
             ),
           ),
         ),
+        if (roleService.getCurrentUserRole() == UserRole.employee) ...[
+          const SizedBox(height: 24),
+
+          EmployeeReportEditingPanel(
+            key: ValueKey('${report.reportId}-${report.priority}'),
+            initialCategory: report.category,
+            initialPriority: report.priority,
+            allowCategoryEditing: false,
+            onSave: _savePriority,
+          ),
+        ],
       ],
     );
   }

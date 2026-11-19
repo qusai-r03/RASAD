@@ -66,7 +66,28 @@ match /reports/{reportId} {
          ).data.municipalityId
     );
 
-  allow create, update, delete: if false;
+
+  // Report creation and deletion remain blocked.
+  allow create, delete: if false;
+
+  // Only an active employee from the report's municipality
+  // may update the priority field.
+  allow update: if
+    isActiveEmployee()
+
+    && resource.data.municipalityId ==
+       get(
+         /databases/$(database)/documents/employees/$(request.auth.uid)
+       ).data.municipalityId
+
+    && request.resource.data.diff(resource.data)
+       .affectedKeys().hasOnly(['priority'])
+
+    && request.resource.data.diff(resource.data)
+       .affectedKeys().hasAny(['priority'])
+
+    && request.resource.data.priority
+       in ['low', 'medium', 'high'];
 }
 
   }

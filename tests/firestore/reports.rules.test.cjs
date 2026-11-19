@@ -246,6 +246,93 @@ console.log('PASS: Employee cannot read another municipality reports');
       'PASS: Suspended employee cannot read municipality reports'
     );
 
+    // Test 15: Employee can update priority
+    // for a report belonging to their municipality.
+    await assertSucceeds(
+      updateDoc(
+        doc(employeeA.firestore(), 'reports/CMP-AMMAN'),
+        {
+          priority: 'high',
+        },
+      ),
+    );
+
+    console.log(
+      'PASS: Employee can update priority in their municipality'
+    );
+
+    // Test 16: Employee cannot update a report
+    // belonging to another municipality.
+    await assertFails(
+      updateDoc(
+        doc(employeeA.firestore(), 'reports/CMP-EMP'),
+        {
+          priority: 'high',
+        },
+      ),
+    );
+
+    console.log(
+      'PASS: Employee cannot update another municipality report'
+    );
+
+    // Test 17: Citizen cannot update report priority.
+    await assertFails(
+      updateDoc(
+        doc(citizenA.firestore(), 'reports/CMP-001'),
+        {
+          priority: 'high',
+        },
+      ),
+    );
+
+    console.log(
+      'PASS: Citizen cannot update report priority'
+    );
+
+    // Test 18: Employee cannot change category
+    // through the priority-only rule.
+    await assertFails(
+      updateDoc(
+        doc(employeeA.firestore(), 'reports/CMP-AMMAN'),
+        {
+          category: 'Garbage',
+        },
+      ),
+    );
+
+    console.log(
+      'PASS: Employee cannot modify restricted fields'
+    );
+
+    // Test 19: Employee cannot enter invalid priority.
+    await assertFails(
+      updateDoc(
+        doc(employeeA.firestore(), 'reports/CMP-AMMAN'),
+        {
+          priority: 'critical',
+        },
+      ),
+    );
+
+    console.log(
+      'PASS: Invalid priority values are denied'
+    );
+
+    // Test 20: Suspended employee cannot update priority.
+    await assertFails(
+      updateDoc(
+        doc(employeeB.firestore(), 'reports/CMP-AMMAN'),
+        {
+          priority: 'low',
+        },
+      ),
+    );
+
+    console.log(
+      'PASS: Suspended employee cannot update priority'
+    );
+
 
   } finally {
     await testEnv.cleanup();

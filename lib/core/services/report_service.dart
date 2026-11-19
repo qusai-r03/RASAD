@@ -59,4 +59,17 @@ class ReportService {
 
     return municipalityId;
   }
+
+  Future<void> updateReportPriority({
+    required String reportId,
+    required String priority,
+  }) async {
+    const allowedPriorities = {'low', 'medium', 'high'};
+
+    if (!allowedPriorities.contains(priority)) {
+      throw ArgumentError('Invalid report priority.');
+    }
+
+    await _reportsCollection.doc(reportId).update({'priority': priority});
+  }
 }
