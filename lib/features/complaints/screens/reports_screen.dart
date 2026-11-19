@@ -17,6 +17,21 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   String selectedStatus = 'All';
+  String? get selectedFirestoreStatus {
+    switch (selectedStatus) {
+      case 'Pending':
+        return 'pending';
+
+      case 'In Progress':
+        return 'in_progress';
+
+      case 'Resolved':
+        return 'resolved';
+
+      default:
+        return null;
+    }
+  }
 
   final ReportService _reportService = ReportService();
   late Future<List<ReportModel>> _reportsFuture;
@@ -87,12 +102,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   return const Center(child: Text('Unable to load reports.'));
                 }
 
+                final filterStatus = selectedFirestoreStatus;
+
                 final reports = (snapshot.data ?? <ReportModel>[]).where((
                   report,
                 ) {
-                  return selectedStatus == 'All' ||
-                      report.status.trim().toLowerCase() ==
-                          selectedStatus.trim().toLowerCase();
+                  return filterStatus == null ||
+                      report.status.trim().toLowerCase() == filterStatus;
                 }).toList();
 
                 if (reports.isEmpty) {
@@ -118,6 +134,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         status: report.status,
                         date:
                             '${report.createdAt.day}/${report.createdAt.month}/${report.createdAt.year}',
+                        imageUrl: report.imageUrl,
                       ),
                     );
                   },
