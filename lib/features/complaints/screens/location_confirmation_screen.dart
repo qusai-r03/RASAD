@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 
 class LocationConfirmationScreen extends StatefulWidget {
   final XFile image;
@@ -25,12 +28,25 @@ class _LocationConfirmationScreenState
   static const Color primaryBlue = Color(0xFF123B5D);
   static const Color buttonBlue = Color(0xFF0057C8);
 
-  // GPS values will be provided by Member 4.
   double? latitude;
   double? longitude;
   double? accuracy;
 
+  bool isLoadingLocation = false;
+  String locationStatus = 'بانتظار تحديد الموقع';
+
   bool get hasValidLocation => latitude != null && longitude != null;
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _refreshLocation();
+      }
+    });
+  }
 
   String get severityText {
     switch (widget.severity) {
@@ -59,14 +75,188 @@ class _LocationConfirmationScreenState
   }
 
   void _showMessage(String message) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
-  // Will be connected to Member 4's GPS service.
-  void _refreshLocation() {
-    _showMessage('خدمة تحديد الموقع غير مربوطة بعد. سيتم ربطها مع Member 4.');
+  Future<void> _refreshLocation() async {
+    if (isLoadingLocation) return;
+
+    setState(() {
+      isLoadingLocation = true;
+      locationStatus = 'جاري تحديد الموقع...';
+    });
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+      if (!serviceEnabled) {
+        if (!mounted) return;
+
+        setState(() {
+          locationStatus = 'يرجى تفعيل GPS';
+        });
+
+        _showMessage('يرجى تفعيل خدمة الموقع في الجهاز');
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied) {
+        if (!mounted) return;
+
+        setState(() {
+          locationStatus = 'تم رفض صلاحية الموقع';
+        });
+
+        _showMessage('يرجى السماح للتطبيق باستخدام الموقع');
+        return;
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+
+        setState(() {
+          locationStatus = 'صلاحية الموقع مرفوضة بشكل دائم';
+        });
+
+        _showMessage('يرجى تفعيل صلاحية الموقع من إعدادات التطبيق');
+
+        return;
+      }
+
+      final Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 20),
+        ),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        latitude = position.latitude;
+        longitude = position.longitude;
+        accuracy = position.accuracy;
+
+        locationStatus = 'تم تحديد الموقع بنجاح';
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        locationStatus = hasValidLocation
+            ? 'تعذر تحديث الموقع، آخر موقع ما زال محفوظًا'
+            : 'تعذر تحديد الموقع';
+      });
+
+      _showMessage('تعذر الحصول على الموقع. تأكدي من تشغيل GPS وحاولي مجددًا.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoadingLocation = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildMap() {
+    if (!hasValidLocation) {
+      return Container(
+        height: 280,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8EEF5),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFD6DFE8), width: 2),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isLoadingLocation)
+                const CircularProgressIndicator(color: buttonBlue)
+              else
+                const Icon(Icons.location_on, size: 65, color: buttonBlue),
+
+              const SizedBox(height: 15),
+
+              const Text(
+                'معاينة موقع البلاغ',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                  color: primaryBlue,
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              Text(
+                locationStatus,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final location = LatLng(latitude!, longitude!);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: SizedBox(
+        height: 280,
+        child: FlutterMap(
+          key: ValueKey('${latitude!}_${longitude!}'),
+          options: MapOptions(
+            initialCenter: location,
+            initialZoom: 17,
+
+            // The user cannot move the map or marker.
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.none,
+            ),
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.rasd.city_issue_reporter',
+            ),
+
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: location,
+                  width: 60,
+                  height: 60,
+                  child: const Icon(
+                    Icons.location_on,
+                    size: 55,
+                    color: buttonBlue,
+                  ),
+                ),
+              ],
+            ),
+
+            const RichAttributionWidget(
+              attributions: [
+                TextSourceAttribution('OpenStreetMap contributors'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -75,25 +265,20 @@ class _LocationConfirmationScreenState
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
-
         appBar: AppBar(
           title: const Text('تأكيد موقع البلاغ'),
           centerTitle: true,
           backgroundColor: primaryBlue,
           foregroundColor: Colors.white,
         ),
-
         body: SafeArea(
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 500),
-
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(18),
-
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-
                   children: [
                     const Text(
                       'تأكيد موقع البلاغ',
@@ -113,69 +298,17 @@ class _LocationConfirmationScreenState
 
                     const SizedBox(height: 22),
 
-                    // Map Placeholder
-                    Container(
-                      height: 280,
-
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8EEF5),
-                        borderRadius: BorderRadius.circular(18),
-
-                        border: Border.all(
-                          color: const Color(0xFFD6DFE8),
-                          width: 2,
-                        ),
-                      ),
-
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-
-                        children: [
-                          Icon(Icons.location_on, size: 65, color: buttonBlue),
-
-                          SizedBox(height: 14),
-
-                          Text(
-                            'معاينة موقع البلاغ',
-                            style: TextStyle(
-                              fontSize: 19,
-                              fontWeight: FontWeight.bold,
-                              color: primaryBlue,
-                            ),
-                          ),
-
-                          SizedBox(height: 10),
-
-                          Text(
-                            'بانتظار ربط الخريطة وخدمة GPS',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey),
-                          ),
-
-                          SizedBox(height: 12),
-
-                          Text(
-                            'المؤشر سيكون ثابتًا وغير قابل للسحب',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 13, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _buildMap(),
 
                     const SizedBox(height: 20),
 
-                    // Location Status
                     Container(
                       padding: const EdgeInsets.all(17),
-
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-
                         border: Border.all(color: const Color(0xFFD6DFE8)),
                       ),
-
                       child: Row(
                         children: [
                           const Icon(
@@ -189,7 +322,6 @@ class _LocationConfirmationScreenState
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-
                               children: [
                                 const Text(
                                   'الموقع الحالي',
@@ -203,9 +335,7 @@ class _LocationConfirmationScreenState
                                 const SizedBox(height: 6),
 
                                 Text(
-                                  hasValidLocation
-                                      ? 'تم تحديد الموقع'
-                                      : 'بانتظار ربط GPS',
+                                  locationStatus,
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: hasValidLocation
@@ -213,6 +343,29 @@ class _LocationConfirmationScreenState
                                         : Colors.grey,
                                   ),
                                 ),
+
+                                if (hasValidLocation) ...[
+                                  const SizedBox(height: 8),
+
+                                  Text(
+                                    'Latitude: ${latitude!.toStringAsFixed(6)}',
+                                    textDirection: TextDirection.ltr,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+
+                                  Text(
+                                    'Longitude: ${longitude!.toStringAsFixed(6)}',
+                                    textDirection: TextDirection.ltr,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+
+                                  if (accuracy != null)
+                                    Text(
+                                      'Accuracy: ${accuracy!.toStringAsFixed(1)} m',
+                                      textDirection: TextDirection.ltr,
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                ],
                               ],
                             ),
                           ),
@@ -231,18 +384,14 @@ class _LocationConfirmationScreenState
 
                     const SizedBox(height: 18),
 
-                    // GPS Information
                     Container(
                       padding: const EdgeInsets.all(15),
-
                       decoration: BoxDecoration(
                         color: const Color(0xFFE8F1FF),
                         borderRadius: BorderRadius.circular(14),
                       ),
-
                       child: const Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
-
                         children: [
                           Icon(Icons.info_outline, color: buttonBlue),
 
@@ -251,8 +400,8 @@ class _LocationConfirmationScreenState
                           Expanded(
                             child: Text(
                               'لا يمكن تحريك مؤشر الموقع يدويًا. '
-                              'سيتم تحديد الموقع من GPS الجهاز، '
-                              'ويمكن تحديثه عند توفر الخدمة.',
+                              'يتم تحديد الموقع باستخدام GPS الجهاز، '
+                              'ويمكن تحديثه باستخدام الزر أدناه.',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: primaryBlue,
@@ -265,28 +414,23 @@ class _LocationConfirmationScreenState
 
                     const SizedBox(height: 24),
 
-                    // Refresh Location Button
                     SizedBox(
                       height: 52,
-
                       child: OutlinedButton.icon(
-                        onPressed: _refreshLocation,
-
+                        onPressed: isLoadingLocation ? null : _refreshLocation,
                         icon: const Icon(Icons.refresh),
-
-                        label: const Text(
-                          'تحديث الموقع',
-                          style: TextStyle(
+                        label: Text(
+                          isLoadingLocation
+                              ? 'جاري التحديث...'
+                              : 'تحديث الموقع',
+                          style: const TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-
                         style: OutlinedButton.styleFrom(
                           foregroundColor: buttonBlue,
-
                           side: const BorderSide(color: buttonBlue, width: 1.5),
-
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -296,20 +440,15 @@ class _LocationConfirmationScreenState
 
                     const SizedBox(height: 28),
 
-                    // Report Summary
                     Container(
                       padding: const EdgeInsets.all(18),
-
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
-
                         border: Border.all(color: const Color(0xFFD6DFE8)),
                       ),
-
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-
                         children: [
                           const Text(
                             'ملخص البلاغ',
@@ -376,15 +515,12 @@ class _LocationConfirmationScreenState
 
                     const SizedBox(height: 28),
 
-                    // Submit Report Button (Disabled Until Integration)
                     SizedBox(
                       height: 55,
-
                       child: ElevatedButton.icon(
+                        // Wait for Member 2 Backend integration.
                         onPressed: null,
-
                         icon: const Icon(Icons.send),
-
                         label: const Text(
                           'إرسال البلاغ',
                           style: TextStyle(
@@ -392,15 +528,11 @@ class _LocationConfirmationScreenState
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-
                         style: ElevatedButton.styleFrom(
                           backgroundColor: buttonBlue,
                           foregroundColor: Colors.white,
-
                           disabledBackgroundColor: const Color(0xFF9EB6D1),
-
                           disabledForegroundColor: Colors.white,
-
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -411,9 +543,8 @@ class _LocationConfirmationScreenState
                     const SizedBox(height: 14),
 
                     const Text(
-                      'الإرسال الفعلي سيتوفر بعد ربط GPS وقاعدة البيانات مع أعضاء الفريق.',
+                      'الإرسال الفعلي سيتوفر بعد ربط قاعدة البيانات مع أعضاء الفريق.',
                       textAlign: TextAlign.center,
-
                       style: TextStyle(fontSize: 13, color: Colors.grey),
                     ),
 

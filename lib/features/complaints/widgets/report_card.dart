@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class ReportCard extends StatelessWidget {
   final String reportId;
@@ -18,33 +19,41 @@ class ReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.all(12),
-      child: SizedBox(
-        width: double.infinity,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Report #$reportId',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          context.push(
+            '/reports/${Uri.encodeComponent(reportId)}',
+          );
+        },
+        child: SizedBox(
+          width: double.infinity,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Report #$reportId',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
 
-              Text('Category: $category'),
+                Text('Category: $category'),
 
-              const SizedBox(height: 8),
+                const SizedBox(height: 8),
 
-              Text('Status: $status'),
+                Text('Status: $status'),
 
-              const SizedBox(height: 8),
+                const SizedBox(height: 8),
 
-              Text('Date: $date'),
-            ],
+                Text('Date: $date'),
+              ],
+            ),
           ),
         ),
       ),
