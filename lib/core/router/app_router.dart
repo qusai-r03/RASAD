@@ -48,6 +48,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // TODO(Auth): عضو الـ Auth يستبدل هذه الشاشة بشاشة تسجيل الدخول الحقيقية
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/new-complaint', builder: (_, __) => const NewComplaintScreen()),
+      GoRoute(path: '/pick-location', builder: (_, __) => const MapScreen(selectionMode: true)),
       GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/saved-places', builder: (_, __) => const SavedPlacesScreen()),
       GoRoute(path: '/route-check', builder: (_, __) => const RouteCheckScreen()),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
@@ -23,6 +24,8 @@ class _NewComplaintScreenState extends ConsumerState<NewComplaintScreen> {
   final _desc = TextEditingController();
   final _loc = TextEditingController();
   String? _photo;
+  double? _latitude;
+  double? _longitude;
 
   @override
   void dispose() {
@@ -42,11 +45,24 @@ class _NewComplaintScreenState extends ConsumerState<NewComplaintScreen> {
       status: ComplaintStatus.newC,
       date: DateTime.now(),
       location: _loc.text.trim(),
+      latitude: _latitude,
+      longitude: _longitude,
       description: _desc.text.trim(),
       localImagePath: _photo,
     ));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('submitted'))));
     context.pushReplacement('/complaint/$id');
+  }
+
+  Future<void> _pickLocation() async {
+    final LatLng? selected = await context.push<LatLng>('/pick-location');
+    if (selected == null) return;
+    setState(() {
+      _latitude = selected.latitude;
+      _longitude = selected.longitude;
+      _loc.text =
+          '${selected.latitude.toStringAsFixed(6)}, ${selected.longitude.toStringAsFixed(6)}';
+    });
   }
 
   Widget _label(String t) => Padding(
@@ -76,8 +92,19 @@ class _NewComplaintScreenState extends ConsumerState<NewComplaintScreen> {
           _label(context.tr('location')),
           TextFormField(
             controller: _loc,
+            readOnly: true,
             validator: req,
-            decoration: AppDecor.input(hint: context.tr('locationHint'), icon: Icons.location_on_outlined),
+            onTap: _pickLocation,
+            decoration: AppDecor.input(
+              hint: context.tr('locationHint'),
+              icon: Icons.location_on_outlined,
+            ).copyWith(
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.map_outlined),
+                tooltip: 'تحديد الموقع على الخريطة',
+                onPressed: _pickLocation,
+              ),
+            ),
           ),
           _label(context.tr('description')),
           TextFormField(

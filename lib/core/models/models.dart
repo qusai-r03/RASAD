@@ -28,6 +28,8 @@ class Complaint {
   /// نتيجة تحليل الذكاء الاصطناعي
   final String aiLabel;
   final double aiConfidence; // 0..1
+  final double? latitude;
+  final double? longitude;
 
   /// مسار صورة داخل assets (اختياري). إن لم يوجد الملف تظهر صورة بديلة.
   final String? imageAsset;
@@ -49,6 +51,8 @@ class Complaint {
     this.description = '',
     this.aiLabel = '',
     this.aiConfidence = 0,
+    this.latitude,
+    this.longitude,
     this.imageAsset,
     this.localImagePath,
     this.fixImagePath,
@@ -65,6 +69,8 @@ class Complaint {
         description: description,
         aiLabel: aiLabel,
         aiConfidence: aiConfidence,
+        latitude: latitude,
+        longitude: longitude,
         imageAsset: imageAsset,
         localImagePath: localImagePath,
         fixImagePath: fixImagePath ?? this.fixImagePath,
