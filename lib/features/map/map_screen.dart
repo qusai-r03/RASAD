@@ -12,6 +12,7 @@ import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/widgets.dart';
 import '../complaints/complaints_provider.dart';
+import 'gps_selection.dart';
 
 /// شاشة خريطة الشكاوى باستخدام OpenStreetMap وبيانات الإحداثيات الحقيقية.
 class MapScreen extends ConsumerStatefulWidget {
@@ -32,10 +33,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   final MapController _mapController = MapController();
   LatLng? _myLocation;
   LatLng? _pickedLocation;
+  double? _gpsAccuracyMeters;
   LatLng? _searchedLocation;
   bool _isSearching = false;
+  bool _isLocating = false;
 
   static const _irbidCenter = LatLng(32.5525, 35.8493);
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.selectionMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _goToMyLocation();
+      });
+    }
+  }
 
   void _openFilter(BuildContext context) {
     showModalBottomSheet<void>(
@@ -70,12 +83,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   Future<void> _goToMyLocation() async {
+    if (_isLocating) return;
+    setState(() => _isLocating = true);
     try {
       final enabled = await Geolocator.isLocationServiceEnabled();
       if (!enabled) {
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('يرجى تفعيل خدمة الموقع')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: const Text('يرجى تفعيل خدمة الموقع'),
+            action: SnackBarAction(
+              label: 'الإعدادات',
+              onPressed: () => Geolocator.openLocationSettings(),
+            ),
+          ));
         }
         return;
       }
@@ -87,8 +107,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('تم رفض إذن الموقع')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(permission == LocationPermission.deniedForever
+                ? 'إذن الموقع مرفوض دائمًا. فعّله من إعدادات التطبيق.'
+                : 'تم رفض إذن الموقع. أعد المحاولة للسماح به.'),
+            action: permission == LocationPermission.deniedForever
+                ? SnackBarAction(
+                    label: 'الإعدادات',
+                    onPressed: () => Geolocator.openAppSettings(),
+                  )
+                : null,
+          ));
         }
         return;
       }
@@ -98,6 +127,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       if (!mounted) return;
       setState(() {
         _myLocation = point;
+        if (widget.selectionMode) {
+          _pickedLocation = point;
+          _gpsAccuracyMeters = position.accuracy;
+        }
         _selectedId = null;
       });
       _mapController.move(point, 16);
@@ -106,6 +139,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('تعذر الحصول على موقعك')));
       }
+    } finally {
+      if (mounted) setState(() => _isLocating = false);
     }
   }
 
@@ -139,7 +174,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
       setState(() {
         _searchedLocation = point;
-        if (widget.selectionMode) _pickedLocation = point;
       });
       _mapController.move(point, 16);
     } catch (_) {
@@ -258,13 +292,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               options: MapOptions(
                 initialCenter: _irbidCenter,
                 initialZoom: 13,
-                onTap: (_, point) => setState(() {
-                  if (widget.selectionMode) {
-                    _pickedLocation = point;
-                  } else {
-                    _selectedId = null;
-                  }
-                }),
+                onTap: (_, point) {
+                  if (!widget.selectionMode) setState(() => _selectedId = null);
+                },
               ),
               children: [
                 TileLayer(
@@ -278,7 +308,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ],
             ),
           ),
-          Positioned(
+          if (!widget.selectionMode) Positioned(
             top: 12,
             left: 12,
             right: 12,
@@ -316,7 +346,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             right: 12,
             top: h * .38,
             child: Column(children: [
-              _MapButton(Icons.my_location, _goToMyLocation),
+              _MapButton(Icons.my_location, _isLocating ? () {} : _goToMyLocation),
               const SizedBox(height: 10),
               _MapButton(Icons.layers_outlined, () {
                 setState(() => _satellite = !_satellite);
@@ -332,18 +362,38 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               bottom: 16,
               child: SafeArea(
                 top: false,
-                child: FilledButton.icon(
-                  onPressed: () {
-                    if (_pickedLocation == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('اضغط على المكان المطلوب أولاً')),
-                      );
-                      return;
-                    }
-                    context.pop(_pickedLocation);
-                  },
-                  icon: const Icon(Icons.check),
-                  label: const Text('تأكيد هذا الموقع'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(children: [
+                          Text(_pickedLocation == null
+                              ? 'بانتظار تحديد الموقع من GPS'
+                              : 'الموقع ثابت على إحداثيات GPS المكتشفة'),
+                          if (_gpsAccuracyMeters != null)
+                            Text('دقة GPS: ±${_gpsAccuracyMeters!.toStringAsFixed(1)} متر'),
+                          TextButton.icon(
+                            onPressed: _isLocating ? null : _goToMyLocation,
+                            icon: const Icon(Icons.refresh),
+                            label: Text(_isLocating ? 'جارٍ تحديث الموقع...' : 'تحديث الموقع (Refresh Location)'),
+                          ),
+                        ]),
+                      ),
+                    ),
+                    FilledButton.icon(
+                      onPressed: _pickedLocation == null || _gpsAccuracyMeters == null
+                          ? null
+                          : () => context.pop(GpsSelection(
+                                latitude: _pickedLocation!.latitude,
+                                longitude: _pickedLocation!.longitude,
+                                accuracyMeters: _gpsAccuracyMeters!,
+                              )),
+                      icon: const Icon(Icons.check),
+                      label: const Text('تأكيد موقع GPS'),
+                    ),
+                  ],
                 ),
               ),
             ),

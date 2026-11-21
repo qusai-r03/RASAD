@@ -30,6 +30,7 @@ class Complaint {
   final double aiConfidence; // 0..1
   final double? latitude;
   final double? longitude;
+  final double? gpsAccuracyMeters;
 
   /// مسار صورة داخل assets (اختياري). إن لم يوجد الملف تظهر صورة بديلة.
   final String? imageAsset;
@@ -53,6 +54,7 @@ class Complaint {
     this.aiConfidence = 0,
     this.latitude,
     this.longitude,
+    this.gpsAccuracyMeters,
     this.imageAsset,
     this.localImagePath,
     this.fixImagePath,
@@ -71,6 +73,7 @@ class Complaint {
         aiConfidence: aiConfidence,
         latitude: latitude,
         longitude: longitude,
+        gpsAccuracyMeters: gpsAccuracyMeters,
         imageAsset: imageAsset,
         localImagePath: localImagePath,
         fixImagePath: fixImagePath ?? this.fixImagePath,

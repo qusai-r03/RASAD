@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:latlong2/latlong.dart';
+import '../../features/map/gps_selection.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/app_theme.dart';
@@ -26,6 +26,7 @@ class _NewComplaintScreenState extends ConsumerState<NewComplaintScreen> {
   String? _photo;
   double? _latitude;
   double? _longitude;
+  double? _gpsAccuracyMeters;
 
   @override
   void dispose() {
@@ -47,6 +48,7 @@ class _NewComplaintScreenState extends ConsumerState<NewComplaintScreen> {
       location: _loc.text.trim(),
       latitude: _latitude,
       longitude: _longitude,
+      gpsAccuracyMeters: _gpsAccuracyMeters,
       description: _desc.text.trim(),
       localImagePath: _photo,
     ));
@@ -55,11 +57,12 @@ class _NewComplaintScreenState extends ConsumerState<NewComplaintScreen> {
   }
 
   Future<void> _pickLocation() async {
-    final LatLng? selected = await context.push<LatLng>('/pick-location');
+    final GpsSelection? selected = await context.push<GpsSelection>('/pick-location');
     if (selected == null) return;
     setState(() {
       _latitude = selected.latitude;
       _longitude = selected.longitude;
+      _gpsAccuracyMeters = selected.accuracyMeters;
       _loc.text =
           '${selected.latitude.toStringAsFixed(6)}, ${selected.longitude.toStringAsFixed(6)}';
     });
@@ -106,6 +109,11 @@ class _NewComplaintScreenState extends ConsumerState<NewComplaintScreen> {
               ),
             ),
           ),
+          if (_gpsAccuracyMeters != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text('دقة GPS: ±${_gpsAccuracyMeters!.toStringAsFixed(1)} متر'),
+            ),
           _label(context.tr('description')),
           TextFormField(
             controller: _desc,
