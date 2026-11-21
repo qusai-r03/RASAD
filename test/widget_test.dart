@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rasd/core/mock/mock_data.dart';
-import 'package:rasd/features/auth/current_user_provider.dart';
-import 'package:rasd/features/home/citizen_home_screen.dart';
-import 'package:rasd/features/home/employee_home_screen.dart';
+import 'package:city_issue_reporter/core/mock/mock_data.dart';
+import 'package:city_issue_reporter/features/auth/current_user_provider.dart';
+import 'package:city_issue_reporter/features/home/citizen_home_screen.dart';
+import 'package:city_issue_reporter/features/home/employee_home_screen.dart';
 
 Widget _wrap(Widget home, {required Override user}) => ProviderScope(
       overrides: [user],
@@ -38,3 +38,4 @@ void main() {
     expect(find.textContaining(mockCitizen.firstName), findsOneWidget);
   });
 }
+
