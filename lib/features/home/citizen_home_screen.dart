@@ -166,7 +166,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
 
   Widget _buildHeroCard() {
     return InkWell(
-      onTap: _comingSoon,
+      onTap: () => context.push('/add-report'),
       borderRadius: BorderRadius.circular(18),
       child: Container(
         height: 128,
