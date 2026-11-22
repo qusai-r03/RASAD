@@ -5,6 +5,7 @@ from firebase_admin import credentials, firestore
 from fastapi import FastAPI
 
 from backend.auth.routes import router as auth_router
+from backend.reports.routes import router as reports_router
 
 
 RASD_PROJECT_ID = "rasd-5896e"
@@ -63,7 +64,7 @@ app = FastAPI(
 )
 
 app.include_router(auth_router)
-
+app.include_router(reports_router)
 
 @app.get("/health")
 def health_check():
