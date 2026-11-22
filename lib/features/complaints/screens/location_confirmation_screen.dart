@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
+
+import '../../../core/services/report_submission_service.dart';
 
 class LocationConfirmationScreen extends StatefulWidget {
   final XFile image;
@@ -28,11 +31,16 @@ class _LocationConfirmationScreenState
   static const Color primaryBlue = Color(0xFF123B5D);
   static const Color buttonBlue = Color(0xFF0057C8);
 
+  final ReportSubmissionService _reportSubmissionService =
+      ReportSubmissionService();
+
   double? latitude;
   double? longitude;
   double? accuracy;
 
   bool isLoadingLocation = false;
+  bool isSubmitting = false;
+
   String locationStatus = 'بانتظار تحديد الموقع';
 
   bool get hasValidLocation => latitude != null && longitude != null;
@@ -82,8 +90,56 @@ class _LocationConfirmationScreenState
     );
   }
 
+  Future<void> _submitReport() async {
+    if (isSubmitting || isLoadingLocation) {
+      return;
+    }
+
+    if (!hasValidLocation) {
+      _showMessage('يرجى تحديد الموقع قبل إرسال البلاغ');
+      return;
+    }
+
+    setState(() {
+      isSubmitting = true;
+    });
+
+    try {
+      final reportId = await _reportSubmissionService.submitReport(
+        image: widget.image,
+        description: widget.description,
+        category: widget.category,
+        latitude: latitude!,
+        longitude: longitude!,
+      );
+
+      if (!mounted) return;
+
+      // Navigate only after the backend confirms successful submission.
+      context.go('/reports');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('تم إرسال البلاغ بنجاح! رقم البلاغ: $reportId'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      _showMessage('فشل إرسال البلاغ: $error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          isSubmitting = false;
+        });
+      }
+    }
+  }
+
   Future<void> _refreshLocation() async {
-    if (isLoadingLocation) return;
+    if (isLoadingLocation || isSubmitting) return;
 
     setState(() {
       isLoadingLocation = true;
@@ -222,7 +278,7 @@ class _LocationConfirmationScreenState
             initialCenter: location,
             initialZoom: 17,
 
-            // The user cannot move the map or marker.
+            // The map and marker cannot be moved manually.
             interactionOptions: const InteractionOptions(
               flags: InteractiveFlag.none,
             ),
@@ -265,20 +321,25 @@ class _LocationConfirmationScreenState
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
+
         appBar: AppBar(
           title: const Text('تأكيد موقع البلاغ'),
           centerTitle: true,
           backgroundColor: primaryBlue,
           foregroundColor: Colors.white,
         ),
+
         body: SafeArea(
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 500),
+
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(18),
+
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
+
                   children: [
                     const Text(
                       'تأكيد موقع البلاغ',
@@ -304,11 +365,13 @@ class _LocationConfirmationScreenState
 
                     Container(
                       padding: const EdgeInsets.all(17),
+
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: const Color(0xFFD6DFE8)),
                       ),
+
                       child: Row(
                         children: [
                           const Icon(
@@ -322,6 +385,7 @@ class _LocationConfirmationScreenState
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+
                               children: [
                                 const Text(
                                   'الموقع الحالي',
@@ -386,12 +450,15 @@ class _LocationConfirmationScreenState
 
                     Container(
                       padding: const EdgeInsets.all(15),
+
                       decoration: BoxDecoration(
                         color: const Color(0xFFE8F1FF),
                         borderRadius: BorderRadius.circular(14),
                       ),
+
                       child: const Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
+
                         children: [
                           Icon(Icons.info_outline, color: buttonBlue),
 
@@ -416,9 +483,14 @@ class _LocationConfirmationScreenState
 
                     SizedBox(
                       height: 52,
+
                       child: OutlinedButton.icon(
-                        onPressed: isLoadingLocation ? null : _refreshLocation,
+                        onPressed: isLoadingLocation || isSubmitting
+                            ? null
+                            : _refreshLocation,
+
                         icon: const Icon(Icons.refresh),
+
                         label: Text(
                           isLoadingLocation
                               ? 'جاري التحديث...'
@@ -428,9 +500,11 @@ class _LocationConfirmationScreenState
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+
                         style: OutlinedButton.styleFrom(
                           foregroundColor: buttonBlue,
                           side: const BorderSide(color: buttonBlue, width: 1.5),
+
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -442,13 +516,16 @@ class _LocationConfirmationScreenState
 
                     Container(
                       padding: const EdgeInsets.all(18),
+
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(color: const Color(0xFFD6DFE8)),
                       ),
+
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+
                         children: [
                           const Text(
                             'ملخص البلاغ',
@@ -517,22 +594,42 @@ class _LocationConfirmationScreenState
 
                     SizedBox(
                       height: 55,
+
                       child: ElevatedButton.icon(
-                        // Wait for Member 2 Backend integration.
-                        onPressed: null,
-                        icon: const Icon(Icons.send),
-                        label: const Text(
-                          'إرسال البلاغ',
-                          style: TextStyle(
+                        onPressed:
+                            isSubmitting ||
+                                isLoadingLocation ||
+                                !hasValidLocation
+                            ? null
+                            : _submitReport,
+
+                        icon: isSubmitting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.send),
+
+                        label: Text(
+                          isSubmitting
+                              ? 'جاري إرسال البلاغ...'
+                              : 'إرسال البلاغ',
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+
                         style: ElevatedButton.styleFrom(
                           backgroundColor: buttonBlue,
                           foregroundColor: Colors.white,
                           disabledBackgroundColor: const Color(0xFF9EB6D1),
                           disabledForegroundColor: Colors.white,
+
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -542,11 +639,12 @@ class _LocationConfirmationScreenState
 
                     const SizedBox(height: 14),
 
-                    const Text(
-                      'الإرسال الفعلي سيتوفر بعد ربط قاعدة البيانات مع أعضاء الفريق.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
+                    if (isSubmitting)
+                      const Text(
+                        'يرجى الانتظار حتى يتم حفظ البلاغ والصورة.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                      ),
 
                     const SizedBox(height: 15),
                   ],
