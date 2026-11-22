@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
+import '../../../core/services/phone_otp_service.dart';
 import 'otp_verification_screen.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -12,6 +16,7 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
+  final PhoneOtpService _phoneOtpService = PhoneOtpService();
 
   final firstNameController = TextEditingController();
   final lastNameController = TextEditingController();
@@ -25,6 +30,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   bool isPasswordVisible = false;
   bool isConfirmPasswordVisible = false;
+  bool isSubmitting = false;
 
   static const navy = Color(0xFF123B5D);
   static const blue = Color(0xFF0057C8);
@@ -87,25 +93,182 @@ class _SignupScreenState extends State<SignupScreen> {
     return null;
   }
 
-  void validateSignup() {
+  void showMessage(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+  }
+
+  Future<void> validateSignup() async {
+    if (isSubmitting) return;
+
     FocusScope.of(context).unfocus();
 
+    debugPrint('SIGNUP DEBUG: Button pressed');
+
     if (!_formKey.currentState!.validate()) {
+      debugPrint('SIGNUP DEBUG: Form validation failed');
       return;
     }
 
-    // Demo only: no Firebase account is created.
-    // Member 2 must check ID uniqueness and link the ID to Firebase.
+    debugPrint('SIGNUP DEBUG: Form validation passed');
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => OtpVerificationScreen(
-          phoneNumber: phoneController.text.trim(),
-          demoMode: true,
-        ),
-      ),
+    setState(() {
+      isSubmitting = true;
+    });
+
+    final url = Uri.parse(
+      'http://10.0.2.2:8000/auth/verify-citizen',
     );
+
+    final body = {
+      'firstName': firstNameController.text.trim(),
+      'lastName': lastNameController.text.trim(),
+      'dateOfBirth': dobController.text.trim(),
+      'nationalId': idController.text.trim(),
+      'phoneNumber': phoneController.text.trim(),
+      'password': passwordController.text,
+      'confirmPassword': confirmPasswordController.text,
+    };
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(body),
+      );
+
+      debugPrint(
+        'SIGNUP DEBUG: Backend status ${response.statusCode}',
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        showMessage(
+          'تم التحقق من المعلومات الحكومية بنجاح',
+        );
+
+        final phoneNumber = phoneController.text.trim();
+
+        final codeWasSent = await _phoneOtpService.sendOtp(
+          phoneNumber,
+        );
+
+        if (!mounted) return;
+
+        if (!codeWasSent) {
+          showMessage(
+            'تعذر بدء التحقق من رقم الهاتف',
+          );
+          return;
+        }
+
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (otpContext) => OtpVerificationScreen(
+              phoneNumber: phoneNumber,
+              codeWasSent: true,
+
+              onVerify: (code) async {
+                await _phoneOtpService.verifyAndRegister(
+                  code: code,
+                  firstName: firstNameController.text.trim(),
+                  lastName: lastNameController.text.trim(),
+                  dateOfBirth: dobController.text.trim(),
+                  nationalId: idController.text.trim(),
+                  phoneNumber: phoneNumber,
+                  password: passwordController.text,
+                );
+
+                if (!otpContext.mounted) return;
+
+                Navigator.of(otpContext).popUntil(
+                  (route) => route.isFirst,
+                );
+
+                if (!mounted) return;
+
+                showMessage(
+                  'تم إنشاء الحساب بنجاح! يمكنك تسجيل الدخول الآن',
+                );
+              },
+
+              onResend: () =>
+                  _phoneOtpService.resendOtp(phoneNumber),
+            ),
+          ),
+        );
+      } else if (response.statusCode == 409) {
+        // The National ID already exists in citizens or employees.
+        debugPrint(
+          'SIGNUP DEBUG: Duplicate National ID detected',
+        );
+
+        showMessage(
+          'هذا الرقم الوطني مسجل مسبقاً. يرجى تسجيل الدخول.',
+        );
+      } else if (response.statusCode == 400) {
+        // Government details did not match or password validation failed.
+        debugPrint(
+          'SIGNUP DEBUG: Registration validation failed',
+        );
+
+        showMessage(
+          'المعلومات المدخلة غير صحيحة أو لا تتطابق مع السجلات الحكومية.',
+        );
+      } else if (response.statusCode == 422) {
+        // Backend rejected the submitted data format.
+        debugPrint(
+          'SIGNUP DEBUG: Invalid registration data',
+        );
+
+        showMessage(
+          'يرجى التأكد من صحة جميع البيانات المدخلة.',
+        );
+      } else if (response.statusCode >= 500) {
+        // Backend server error.
+        debugPrint(
+          'SIGNUP DEBUG: Backend server error',
+        );
+
+        showMessage(
+          'حدث خطأ في الخادم. يرجى المحاولة لاحقاً.',
+        );
+      } else {
+        debugPrint(
+          'SIGNUP DEBUG: Unexpected backend response',
+        );
+
+        showMessage(
+          'تعذر إكمال عملية التسجيل. يرجى المحاولة مرة أخرى.',
+        );
+      }
+    } catch (e) {
+      debugPrint('Signup error: $e');
+
+      if (!mounted) return;
+
+      showMessage(
+        'تعذر الاتصال بخادم التحقق. يرجى التأكد من الاتصال والمحاولة مرة أخرى.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isSubmitting = false;
+        });
+      }
+    }
   }
 
   InputDecoration fieldDecoration({
@@ -119,23 +282,38 @@ class _SignupScreenState extends State<SignupScreen> {
       suffixIcon: suffixIcon,
       filled: true,
       fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 17,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFB8BDC6)),
+        borderSide: const BorderSide(
+          color: Color(0xFFB8BDC6),
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: blue, width: 2),
+        borderSide: const BorderSide(
+          color: blue,
+          width: 2,
+        ),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.red),
+        borderSide: const BorderSide(
+          color: Colors.red,
+        ),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.red, width: 2),
+        borderSide: const BorderSide(
+          color: Colors.red,
+          width: 2,
+        ),
       ),
     );
   }
@@ -221,7 +399,11 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
 
               // Blue overlay
-              Positioned.fill(child: Container(color: const Color(0x26091F38))),
+              Positioned.fill(
+                child: Container(
+                  color: const Color(0x26091F38),
+                ),
+              ),
 
               SafeArea(
                 child: SingleChildScrollView(
@@ -260,7 +442,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       // White signup card
                       Container(
                         width: double.infinity,
-                        constraints: const BoxConstraints(maxWidth: 450),
+                        constraints: const BoxConstraints(
+                          maxWidth: 450,
+                        ),
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
                           color: Colors.white,
@@ -276,7 +460,8 @@ class _SignupScreenState extends State<SignupScreen> {
                         child: Form(
                           key: _formKey,
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            crossAxisAlignment:
+                                CrossAxisAlignment.stretch,
                             children: [
                               const Text(
                                 'إنشاء حساب',
@@ -309,7 +494,8 @@ class _SignupScreenState extends State<SignupScreen> {
                                 icon: Icons.person_outline,
                                 hint: 'First Name',
                                 validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
+                                  if (value == null ||
+                                      value.trim().isEmpty) {
                                     return 'الرجاء إدخال الاسم الأول';
                                   }
                                   return null;
@@ -323,7 +509,8 @@ class _SignupScreenState extends State<SignupScreen> {
                                 icon: Icons.person_outline,
                                 hint: 'Last Name',
                                 validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
+                                  if (value == null ||
+                                      value.trim().isEmpty) {
                                     return 'الرجاء إدخال اسم العائلة';
                                   }
                                   return null;
@@ -358,7 +545,8 @@ class _SignupScreenState extends State<SignupScreen> {
                                   LengthLimitingTextInputFormatter(10),
                                 ],
                                 validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
+                                  if (value == null ||
+                                      value.trim().isEmpty) {
                                     return 'الرجاء إدخال رقم الهاتف';
                                   }
 
@@ -371,7 +559,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                 },
                               ),
 
-                              // 5. ID
+                              // 5. National ID
                               buildField(
                                 label: 'رقم الحساب (ID)',
                                 controller: idController,
@@ -389,7 +577,8 @@ class _SignupScreenState extends State<SignupScreen> {
                                     return 'الرجاء إدخال رقم الحساب (ID)';
                                   }
 
-                                  if (!RegExp(r'^[0-9]{10}$').hasMatch(id)) {
+                                  if (!RegExp(r'^[0-9]{10}$')
+                                      .hasMatch(id)) {
                                     return 'رقم الحساب (ID) يجب أن يتكون من 10 أرقام بالضبط';
                                   }
 
@@ -412,7 +601,8 @@ class _SignupScreenState extends State<SignupScreen> {
                                   ),
                                   onPressed: () {
                                     setState(() {
-                                      isPasswordVisible = !isPasswordVisible;
+                                      isPasswordVisible =
+                                          !isPasswordVisible;
                                     });
                                   },
                                 ),
@@ -425,7 +615,8 @@ class _SignupScreenState extends State<SignupScreen> {
                                 controller: confirmPasswordController,
                                 icon: Icons.lock_reset_outlined,
                                 hint: 'Confirm Password',
-                                obscureText: !isConfirmPasswordVisible,
+                                obscureText:
+                                    !isConfirmPasswordVisible,
                                 suffixIcon: IconButton(
                                   icon: Icon(
                                     isConfirmPasswordVisible
@@ -444,7 +635,8 @@ class _SignupScreenState extends State<SignupScreen> {
                                     return 'الرجاء تأكيد كلمة المرور';
                                   }
 
-                                  if (value != passwordController.text) {
+                                  if (value !=
+                                      passwordController.text) {
                                     return 'كلمتا المرور غير متطابقتين';
                                   }
 
@@ -470,7 +662,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                     SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
-                                        'التحقق من الهاتف تجريبي حاليًا. سيتم إرسال رمز OTP بعد ربط Firebase.',
+                                        'سيتم إرسال رمز تحقق OTP إلى رقم هاتفك لإكمال إنشاء الحساب.',
                                         style: TextStyle(
                                           fontSize: 13,
                                           height: 1.5,
@@ -488,21 +680,32 @@ class _SignupScreenState extends State<SignupScreen> {
                               SizedBox(
                                 height: 55,
                                 child: ElevatedButton(
-                                  onPressed: validateSignup,
+                                  onPressed:
+                                      isSubmitting ? null : validateSignup,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: blue,
                                     foregroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
+                                      borderRadius:
+                                          BorderRadius.circular(14),
                                     ),
                                   ),
-                                  child: const Text(
-                                    'إنشاء حساب',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                                  child: isSubmitting
+                                      ? const SizedBox(
+                                          height: 24,
+                                          width: 24,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Text(
+                                          'إنشاء حساب',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                 ),
                               ),
 
@@ -515,7 +718,10 @@ class _SignupScreenState extends State<SignupScreen> {
                                 },
                                 child: const Text(
                                   'لديك حساب بالفعل؟ تسجيل الدخول',
-                                  style: TextStyle(fontSize: 15, color: blue),
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: blue,
+                                  ),
                                 ),
                               ),
                             ],

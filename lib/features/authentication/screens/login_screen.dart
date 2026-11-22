@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -21,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final passwordController = TextEditingController();
 
   bool isPasswordVisible = false;
+  bool isLoading = false;
 
   static const navy = Color(0xFF123B5D);
   static const blue = Color(0xFF0057C8);
@@ -34,18 +36,24 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void showMessage(String message) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 4),
+      ),
     );
   }
 
   Future<void> validateLogin() async {
+    if (isLoading) return;
+
     FocusScope.of(context).unfocus();
 
     final id = idController.text.trim();
     final password = passwordController.text;
 
-    // Keep Ghazal's input validation.
     if (id.isEmpty) {
       showMessage('الرجاء إدخال الرقم الوطني');
       return;
@@ -61,16 +69,26 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    setState(() {
+      isLoading = true;
+    });
+
     try {
-      // Sign in through Firebase Authentication.
+      debugPrint('========== RASD LOGIN START ==========');
+      debugPrint('National ID: $id');
+      debugPrint('Attempting Firebase authentication...');
+
       final result = await AuthService().login(
         nationalId: id,
         password: password,
       );
 
+      debugPrint('Firebase login successful.');
+      debugPrint('User UID: ${result.uid}');
+      debugPrint('User role: ${result.role}');
+
       if (!mounted) return;
 
-      // Identify the user's role.
       final UserRole userRole;
 
       if (result.role == 'employee') {
@@ -81,25 +99,55 @@ class _LoginScreenState extends State<LoginScreen> {
         throw StateError('Invalid user role: ${result.role}');
       }
 
-      roleService.setAuthenticatedUser(uid: result.uid, role: userRole);
-      // Navigate to the appropriate dashboard.
+      roleService.setAuthenticatedUser(
+        uid: result.uid,
+        role: userRole,
+      );
+
+      debugPrint('Navigating to dashboard...');
+      debugPrint('========== RASD LOGIN SUCCESS ==========');
+
       context.go('/dashboard');
-    } on FirebaseAuthException catch (error) {
+    } on FirebaseAuthException catch (error, stackTrace) {
+      debugPrint('========== FIREBASE LOGIN ERROR ==========');
+      debugPrint('ERROR CODE: ${error.code}');
+      debugPrint('ERROR MESSAGE: ${error.message}');
+      debugPrint('ERROR PLUGIN: ${error.plugin}');
+      debugPrintStack(stackTrace: stackTrace);
+      debugPrint('==========================================');
+
       if (!mounted) return;
 
       if (error.code == 'invalid-credential' ||
           error.code == 'wrong-password' ||
-          error.code == 'user-not-found') {
+          error.code == 'user-not-found' ||
+          error.code == 'invalid-email') {
         showMessage('الرقم الوطني أو كلمة المرور غير صحيحة');
+      } else if (error.code == 'network-request-failed') {
+        showMessage('تعذر الاتصال بالإنترنت. تحقق من اتصالك');
+      } else if (error.code == 'user-disabled') {
+        showMessage('هذا الحساب معطل');
+      } else if (error.code == 'too-many-requests') {
+        showMessage('محاولات كثيرة. يرجى المحاولة لاحقاً');
       } else {
         showMessage('تعذر تسجيل الدخول. يرجى المحاولة مرة أخرى');
       }
     } catch (error, stackTrace) {
-      debugPrint('RASD LOGIN ERROR: $error');
+      debugPrint('========== RASD LOGIN ERROR ==========');
+      debugPrint('ERROR TYPE: ${error.runtimeType}');
+      debugPrint('ERROR DETAILS: $error');
       debugPrintStack(stackTrace: stackTrace);
+      debugPrint('======================================');
 
       if (!mounted) return;
+
       showMessage('تعذر تسجيل الدخول. تحقق من حالة الحساب');
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -134,7 +182,11 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
 
               // Blue overlay
-              Positioned.fill(child: Container(color: const Color(0x26091F38))),
+              Positioned.fill(
+                child: Container(
+                  color: const Color(0x26091F38),
+                ),
+              ),
 
               SafeArea(
                 child: LayoutBuilder(
@@ -170,7 +222,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 shadows: [
-                                  Shadow(color: Colors.black54, blurRadius: 6),
+                                  Shadow(
+                                    color: Colors.black54,
+                                    blurRadius: 6,
+                                  ),
                                 ],
                               ),
                             ),
@@ -182,7 +237,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               margin: const EdgeInsets.symmetric(
                                 horizontal: 14,
                               ),
-                              constraints: const BoxConstraints(maxWidth: 450),
+                              constraints: const BoxConstraints(
+                                maxWidth: 450,
+                              ),
                               padding: const EdgeInsets.all(24),
                               decoration: BoxDecoration(
                                 color: Colors.white,
@@ -222,7 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                                   const SizedBox(height: 25),
 
-                                  // ID field
+                                  // National ID field
                                   const Text(
                                     'رقم الحساب (ID)',
                                     style: TextStyle(
@@ -236,6 +293,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                                   TextField(
                                     controller: idController,
+                                    enabled: !isLoading,
                                     keyboardType: TextInputType.number,
                                     textDirection: TextDirection.ltr,
                                     textAlign: TextAlign.right,
@@ -279,6 +337,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                                   TextField(
                                     controller: passwordController,
+                                    enabled: !isLoading,
                                     obscureText: !isPasswordVisible,
                                     autocorrect: false,
                                     enableSuggestions: false,
@@ -314,15 +373,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                   Align(
                                     alignment: Alignment.centerLeft,
                                     child: TextButton(
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const ForgotPasswordScreen(),
-                                          ),
-                                        );
-                                      },
+                                      onPressed: isLoading
+                                          ? null
+                                          : () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      const ForgotPasswordScreen(),
+                                                ),
+                                              );
+                                            },
                                       child: const Text(
                                         'نسيت كلمة المرور؟',
                                         style: TextStyle(color: blue),
@@ -336,23 +397,32 @@ class _LoginScreenState extends State<LoginScreen> {
                                   SizedBox(
                                     height: 55,
                                     child: ElevatedButton(
-                                      onPressed: validateLogin,
+                                      onPressed:
+                                          isLoading ? null : validateLogin,
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: blue,
                                         foregroundColor: Colors.white,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
                                         ),
                                       ),
-                                      child: const Text(
-                                        'تسجيل الدخول',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
+                                      child: isLoading
+                                          ? const SizedBox(
+                                              width: 25,
+                                              height: 25,
+                                              child: CircularProgressIndicator(
+                                                color: Colors.white,
+                                                strokeWidth: 3,
+                                              ),
+                                            )
+                                          : const Text(
+                                              'تسجيل الدخول',
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
                                     ),
                                   ),
 
@@ -362,15 +432,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                   SizedBox(
                                     height: 55,
                                     child: OutlinedButton(
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const SignupScreen(),
-                                          ),
-                                        );
-                                      },
+                                      onPressed: isLoading
+                                          ? null
+                                          : () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      const SignupScreen(),
+                                                ),
+                                              );
+                                            },
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: blue,
                                         side: const BorderSide(
@@ -378,9 +450,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                           width: 2,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
                                         ),
                                       ),
                                       child: const Text(
