@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/complaints/screens/add_report_screen.dart';
 import '../features/complaints/screens/report_details_screen.dart';
-import '../shared/widgets/employee_shell.dart';
-import '../features/profile/profile_screen.dart';
 import '../features/complaints/screens/reports_screen.dart';
-import '../shared/widgets/citizen_shell.dart';
-import '../models/user_role.dart';
 import '../features/authentication/screens/login_screen.dart';
+import '../features/profile/profile_screen.dart';
+
+import '../shared/widgets/employee_shell.dart';
+import '../shared/widgets/citizen_shell.dart';
+
+import '../models/user_role.dart';
+
 import '../core/constants/role_permissions.dart';
 import '../core/routing/role_guard.dart';
 import '../core/routing/role_dashboard.dart';
@@ -23,6 +27,7 @@ final GoRouter appRouter = GoRouter(
   redirect: (context, state) {
     final role = roleService.getCurrentUserRole();
     final path = state.uri.path;
+
     // Wait until Firebase session restoration finishes.
     if (roleService.isRestoringSession) {
       return path == '/loading' ? null : '/loading';
@@ -43,15 +48,21 @@ final GoRouter appRouter = GoRouter(
       return '/dashboard';
     }
 
-    // Protect the dashboard.
     // Protect authenticated application pages.
     if ((path == '/dashboard' ||
             path == '/reports' ||
             path.startsWith('/reports/') ||
-            path == '/profile') &&
+            path == '/profile' ||
+            path == '/add-report') &&
         role == null) {
       return '/login';
     }
+
+    // Only citizens can create reports.
+    if (path == '/add-report' && role != UserRole.citizen) {
+      return '/dashboard';
+    }
+
     // Protect employee-only routes.
     if (path.startsWith('/employee/') && role == null) {
       return '/login';
@@ -61,21 +72,37 @@ final GoRouter appRouter = GoRouter(
   },
 
   routes: [
+    // Loading Screen.
     GoRoute(
       path: '/loading',
       builder: (context, state) {
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
-      },
-    ),
-    GoRoute(
-      path: '/',
-      builder: (context, state) {
-        return const Scaffold(body: Center(child: Text('Welcome to RASD')));
+        return const Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
       },
     ),
 
-    // Ghazal's original login screen.
-    GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+    // Welcome Screen.
+    GoRoute(
+      path: '/',
+      builder: (context, state) {
+        return const Scaffold(
+          body: Center(
+            child: Text('Welcome to RASD'),
+          ),
+        );
+      },
+    ),
+
+    // Login Screen.
+    GoRoute(
+      path: '/login',
+      builder: (context, state) => const LoginScreen(),
+    ),
+
+    // Shared Navigation Shell.
     ShellRoute(
       builder: (context, state, child) {
         final role = roleService.getCurrentUserRole();
@@ -90,8 +117,17 @@ final GoRouter appRouter = GoRouter(
 
         return child;
       },
+
       routes: [
-        // Citizen or employee dashboard based on role.
+        // Add Report Screen - Citizens Only.
+        GoRoute(
+          path: '/add-report',
+          builder: (context, state) {
+            return const AddReportScreen();
+          },
+        ),
+
+        // Citizen or Employee Dashboard.
         GoRoute(
           path: '/dashboard',
           builder: (context, state) {
@@ -99,7 +135,9 @@ final GoRouter appRouter = GoRouter(
 
             if (role == null) {
               return const Scaffold(
-                body: Center(child: Text('Not authenticated')),
+                body: Center(
+                  child: Text('Not authenticated'),
+                ),
               );
             }
 
@@ -114,6 +152,8 @@ final GoRouter appRouter = GoRouter(
             );
           },
         ),
+
+        // Reports Screen.
         GoRoute(
           path: '/reports',
           builder: (context, state) {
@@ -121,7 +161,9 @@ final GoRouter appRouter = GoRouter(
 
             if (role == null) {
               return const Scaffold(
-                body: Center(child: Text('Not authenticated')),
+                body: Center(
+                  child: Text('Not authenticated'),
+                ),
               );
             }
 
@@ -136,6 +178,8 @@ final GoRouter appRouter = GoRouter(
             );
           },
         ),
+
+        // Report Details Screen - Member 3 Integration.
         GoRoute(
           path: '/reports/:reportId',
           builder: (context, state) {
@@ -143,7 +187,9 @@ final GoRouter appRouter = GoRouter(
 
             if (role == null) {
               return const Scaffold(
-                body: Center(child: Text('Not authenticated')),
+                body: Center(
+                  child: Text('Not authenticated'),
+                ),
               );
             }
 
@@ -156,10 +202,14 @@ final GoRouter appRouter = GoRouter(
             return RoleGuard(
               roleService: roleService,
               requiredPermission: permission,
-              child: ReportDetailsScreen(reportId: reportId),
+              child: ReportDetailsScreen(
+                reportId: reportId,
+              ),
             );
           },
         ),
+
+        // Profile Screen.
         GoRoute(
           path: '/profile',
           builder: (context, state) {
@@ -167,7 +217,9 @@ final GoRouter appRouter = GoRouter(
 
             if (role == null) {
               return const Scaffold(
-                body: Center(child: Text('Not authenticated')),
+                body: Center(
+                  child: Text('Not authenticated'),
+                ),
               );
             }
 
@@ -185,7 +237,7 @@ final GoRouter appRouter = GoRouter(
       ],
     ),
 
-    // Employee reports.
+    // Employee Reports.
     GoRoute(
       path: '/employee/reports',
       builder: (context, state) {
@@ -193,7 +245,9 @@ final GoRouter appRouter = GoRouter(
           roleService: roleService,
           requiredPermission: AppPermission.viewMunicipalityReports,
           child: const Scaffold(
-            body: Center(child: Text('Employee Reports - Access Granted')),
+            body: Center(
+              child: Text('Employee Reports - Access Granted'),
+            ),
           ),
         );
       },

@@ -25,7 +25,11 @@ class CitizenShell extends StatelessWidget {
         onHome: () => context.go('/dashboard'),
         onReports: () => context.go('/reports'),
         onMap: () => _comingSoon(context),
-        onAdd: () => _comingSoon(context),
+        onAdd: () {
+          if (path != '/add-report') {
+            context.push('/add-report');
+          }
+        },
         onProfile: () => context.go('/profile'),
       ),
     );

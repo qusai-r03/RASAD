@@ -3,8 +3,10 @@ from contextlib import asynccontextmanager
 import firebase_admin
 from firebase_admin import credentials, firestore
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from backend.auth.routes import router as auth_router
+from backend.reports.routes import router as reports_router
 
 
 RASD_PROJECT_ID = "rasd-5896e"
@@ -62,8 +64,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(auth_router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:[0-9]+)?",
+    allow_methods=["POST"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 
+app.include_router(auth_router)
+app.include_router(reports_router)
 
 @app.get("/health")
 def health_check():
