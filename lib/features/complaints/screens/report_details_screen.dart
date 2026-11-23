@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/report_category_comparison.dart';
 import '../../../app/router.dart';
 import '../../../models/user_role.dart';
 import '../widgets/employee_report_editing_panel.dart';
@@ -146,6 +147,8 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
         ),
         if (roleService.getCurrentUserRole() == UserRole.employee) ...[
           const SizedBox(height: 24),
+          ReportCategoryComparison(citizenSelection: report.category),
+          const SizedBox(height: 16),
 
           EmployeeReportEditingPanel(
             key: ValueKey('${report.reportId}-${report.priority}'),
