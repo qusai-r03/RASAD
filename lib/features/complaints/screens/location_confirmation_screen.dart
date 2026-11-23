@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/services/report_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
@@ -32,6 +34,7 @@ class _LocationConfirmationScreenState
   double? longitude;
   double? accuracy;
 
+  bool isSubmitting = false;
   bool isLoadingLocation = false;
   String locationStatus = 'بانتظار تحديد الموقع';
 
@@ -80,6 +83,29 @@ class _LocationConfirmationScreenState
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
+  }
+
+  Future<void> _submitReport() async {
+    if (isSubmitting || isLoadingLocation || !hasValidLocation) return;
+    setState(() => isSubmitting = true);
+    try {
+      final id = await ReportService().submitReport(
+        image: widget.image,
+        category: widget.category,
+        description: widget.description,
+        latitude: latitude!,
+        longitude: longitude!,
+      );
+      if (!mounted) return;
+      _showMessage('تم إرسال البلاغ بنجاح. رقم البلاغ: $id');
+      context.go('/reports');
+    } on FormatException catch (error) {
+      _showMessage(error.message);
+    } catch (_) {
+      _showMessage('تعذر تأكيد الإرسال. تحقق من الاتصال بالخادم ومن قائمة شكاواي');
+    } finally {
+      if (mounted) setState(() => isSubmitting = false);
+    }
   }
 
   Future<void> _refreshLocation() async {
@@ -417,7 +443,7 @@ class _LocationConfirmationScreenState
                     SizedBox(
                       height: 52,
                       child: OutlinedButton.icon(
-                        onPressed: isLoadingLocation ? null : _refreshLocation,
+                        onPressed: isSubmitting || isLoadingLocation ? null : _refreshLocation,
                         icon: const Icon(Icons.refresh),
                         label: Text(
                           isLoadingLocation
@@ -518,12 +544,13 @@ class _LocationConfirmationScreenState
                     SizedBox(
                       height: 55,
                       child: ElevatedButton.icon(
-                        // Wait for Member 2 Backend integration.
-                        onPressed: null,
+                        onPressed: hasValidLocation && !isLoadingLocation && !isSubmitting
+                            ? _submitReport
+                            : null,
                         icon: const Icon(Icons.send),
-                        label: const Text(
-                          'إرسال البلاغ',
-                          style: TextStyle(
+                        label: Text(
+                          isSubmitting ? 'جارٍ إرسال البلاغ…' : 'إرسال البلاغ',
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -538,14 +565,6 @@ class _LocationConfirmationScreenState
                           ),
                         ),
                       ),
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    const Text(
-                      'الإرسال الفعلي سيتوفر بعد ربط قاعدة البيانات مع أعضاء الفريق.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: Colors.grey),
                     ),
 
                     const SizedBox(height: 15),

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -18,6 +18,7 @@ class _AddReportScreenState extends State<AddReportScreen> {
   final ImagePicker _picker = ImagePicker();
 
   XFile? selectedImage;
+  Uint8List? previewBytes;
   bool isTakingPhoto = false;
 
   static const Color primaryBlue = Color(0xFF123B5D);
@@ -55,10 +56,12 @@ class _AddReportScreenState extends State<AddReportScreen> {
       if (!mounted) return;
 
       if (photo != null) {
-        debugPrint('CAMERA: Photo captured successfully');
+        final bytes = await photo.readAsBytes();
+        if (!mounted) return;
 
         setState(() {
           selectedImage = photo;
+          previewBytes = bytes;
         });
 
         _showMessage('تم التقاط الصورة بنجاح');
@@ -96,6 +99,7 @@ class _AddReportScreenState extends State<AddReportScreen> {
       MaterialPageRoute(
         builder: (context) => CategoryConfirmationScreen(
           image: selectedImage!,
+          previewBytes: previewBytes!,
           description: description,
         ),
       ),
@@ -202,8 +206,8 @@ class _AddReportScreenState extends State<AddReportScreen> {
                                 ),
                               ],
                             )
-                          : Image.file(
-                              File(selectedImage!.path),
+                          : Image.memory(
+                              previewBytes!,
                               width: double.infinity,
                               height: 250,
                               fit: BoxFit.cover,

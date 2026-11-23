@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,11 +7,13 @@ import 'location_confirmation_screen.dart';
 
 class CategoryConfirmationScreen extends StatefulWidget {
   final XFile image;
+  final Uint8List previewBytes;
   final String description;
 
   const CategoryConfirmationScreen({
     super.key,
     required this.image,
+    required this.previewBytes,
     required this.description,
   });
 
@@ -161,8 +163,8 @@ class _CategoryConfirmationScreenState
                     // Captured Image
                     ClipRRect(
                       borderRadius: BorderRadius.circular(18),
-                      child: Image.file(
-                        File(widget.image.path),
+                      child: Image.memory(
+                        widget.previewBytes,
                         height: 230,
                         width: double.infinity,
                         fit: BoxFit.cover,

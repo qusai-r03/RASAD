@@ -40,6 +40,7 @@ dependencies:
   cloud_firestore: ^7.1.0
   firebase_storage: ^14.0.1
   http: ^1.6.0
+  http_parser: ^4.1.2
   flutter_riverpod: 2.5.1
   google_fonts: 8.2.1
   intl: ^0.20.3
