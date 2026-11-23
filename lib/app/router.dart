@@ -6,6 +6,7 @@ import '../features/complaints/screens/report_details_screen.dart';
 import '../features/complaints/screens/reports_screen.dart';
 import '../features/authentication/screens/login_screen.dart';
 import '../features/profile/profile_screen.dart';
+import '../features/map/map_screen.dart';
 
 import '../shared/widgets/employee_shell.dart';
 import '../shared/widgets/citizen_shell.dart';
@@ -53,13 +54,14 @@ final GoRouter appRouter = GoRouter(
             path == '/reports' ||
             path.startsWith('/reports/') ||
             path == '/profile' ||
+            path == '/map' ||
             path == '/add-report') &&
         role == null) {
       return '/login';
     }
 
     // Only citizens can create reports.
-    if (path == '/add-report' && role != UserRole.citizen) {
+    if ((path == '/add-report' || path == '/map') && role != UserRole.citizen) {
       return '/dashboard';
     }
 
@@ -124,6 +126,14 @@ final GoRouter appRouter = GoRouter(
           path: '/add-report',
           builder: (context, state) {
             return const AddReportScreen();
+          },
+        ),
+
+        GoRoute(
+          path: '/map',
+          builder: (context, state) {
+            final citizenId = roleService.getCurrentUser()!.id;
+            return MapScreen(key: ValueKey(citizenId), citizenId: citizenId);
           },
         ),
 

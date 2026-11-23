@@ -13,6 +13,7 @@ class CitizenShell extends StatelessWidget {
     final path = GoRouterState.of(context).uri.path;
 
     final selectedIndex = switch (path) {
+      '/map' => 1,
       '/reports' => 2,
       '/profile' => 3,
       _ => 0,
@@ -24,7 +25,7 @@ class CitizenShell extends StatelessWidget {
         selectedIndex: selectedIndex,
         onHome: () => context.go('/dashboard'),
         onReports: () => context.go('/reports'),
-        onMap: () => _comingSoon(context),
+        onMap: () => context.go('/map'),
         onAdd: () {
           if (path != '/add-report') {
             context.push('/add-report');
@@ -33,11 +34,5 @@ class CitizenShell extends StatelessWidget {
         onProfile: () => context.go('/profile'),
       ),
     );
-  }
-
-  void _comingSoon(BuildContext context) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('هذه الميزة ستتوفر قريباً')));
   }
 }
