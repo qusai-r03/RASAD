@@ -11,6 +11,13 @@ class ReportService {
   CollectionReference<Map<String, dynamic>> get _reportsCollection =>
       _firestore.collection('reports');
 
+  Future<void> requestCorrection(String reportId, String message) async {
+    await _reportsCollection.doc(reportId).collection('correctionRequests').add({
+      'message': message.trim(),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<ReportModel?> getReportById(String reportId) async {
     final document = await _reportsCollection.doc(reportId).get();
 

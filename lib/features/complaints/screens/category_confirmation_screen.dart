@@ -28,7 +28,8 @@ class _CategoryConfirmationScreenState
   static const Color buttonBlue = Color(0xFF0057C8);
 
   // Mock AI results until the real AI model is integrated.
-  String selectedCategory = 'حفرة في الطريق';
+  static const predictedCategory = 'حفرة في الطريق';
+  String selectedCategory = predictedCategory;
   final String severityLevel = 'عالية';
 
   // Temporary categories. Replace with the team's official categories.
@@ -133,6 +134,7 @@ class _CategoryConfirmationScreenState
           image: widget.image,
           description: widget.description,
           category: selectedCategory,
+          predictedCategory: predictedCategory,
           severity: severityLevel,
         ),
       ),

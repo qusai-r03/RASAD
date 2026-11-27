@@ -10,6 +10,7 @@ class LocationConfirmationScreen extends StatefulWidget {
   final XFile image;
   final String description;
   final String category;
+  final String predictedCategory;
   final String severity;
 
   const LocationConfirmationScreen({
@@ -17,6 +18,7 @@ class LocationConfirmationScreen extends StatefulWidget {
     required this.image,
     required this.description,
     required this.category,
+    required this.predictedCategory,
     required this.severity,
   });
 
@@ -92,6 +94,8 @@ class _LocationConfirmationScreenState
       final id = await ReportSubmissionService().submitReport(
         image: widget.image,
         category: widget.category,
+        predictedCategory: widget.predictedCategory,
+        accuracyMeters: accuracy,
         description: widget.description,
         latitude: latitude!,
         longitude: longitude!,
@@ -318,7 +322,7 @@ class _LocationConfirmationScreenState
                     const SizedBox(height: 10),
 
                     const Text(
-                      'سيتم تحديد موقع المشكلة تلقائيًا باستخدام GPS.',
+                      'أرسل البلاغ وأنت بالقرب من المشكلة حتى يحدد GPS موقعها بدقة.',
                       style: TextStyle(fontSize: 15, color: Colors.grey),
                     ),
 

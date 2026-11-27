@@ -9,6 +9,8 @@ class ReportSubmissionService {
   Future<String> submitReport({
     required XFile image,
     required String category,
+    required String predictedCategory,
+    double? accuracyMeters,
     required String description,
     required double latitude,
     required double longitude,
@@ -36,6 +38,9 @@ class ReportSubmissionService {
       ..headers['Authorization'] = 'Bearer $token'
       ..fields.addAll({
         'category': category,
+        'aiPredictedCategory': predictedCategory,
+        if (accuracyMeters != null && accuracyMeters.isFinite && accuracyMeters >= 0)
+          'gpsAccuracyMeters': accuracyMeters.toString(),
         'description': description,
         'latitude': latitude.toString(),
         'longitude': longitude.toString(),

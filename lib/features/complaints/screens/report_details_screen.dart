@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/router.dart' show roleService;
 import '../../../core/services/report_service.dart';
+import '../../../models/user_role.dart';
 import '../../../models/report_model.dart';
 
 class ReportDetailsScreen extends StatefulWidget {
@@ -29,6 +31,50 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
 
     if (oldWidget.reportId != widget.reportId) {
       _reportFuture = _reportService.getReportById(widget.reportId);
+    }
+  }
+
+  bool _sendingCorrection = false;
+
+  Future<void> _requestCorrection(String reportId) async {
+    if (_sendingCorrection) return;
+    var message = '';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, refresh) => AlertDialog(
+          title: const Text('الإبلاغ عن معلومات غير صحيحة'),
+          content: TextField(
+            autofocus: true,
+            minLines: 2,
+            maxLines: 4,
+            maxLength: 1000,
+            decoration: const InputDecoration(labelText: 'ما المعلومة التي تحتاج إلى تصحيح؟'),
+            onChanged: (value) => refresh(() => message = value.trim()),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+            FilledButton(
+              onPressed: message.isEmpty ? null : () => Navigator.pop(dialogContext, true),
+              child: const Text('إرسال الطلب'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    setState(() => _sendingCorrection = true);
+    try {
+      await _reportService.requestCorrection(reportId, message);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إرسال طلب التصحيح')));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذّر إرسال طلب التصحيح')));
+      }
+    } finally {
+      if (mounted) setState(() => _sendingCorrection = false);
     }
   }
 
@@ -61,6 +107,13 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (roleService.getCurrentUserRole() == UserRole.citizen &&
+            roleService.getCurrentUser()?.id == report.citizenId)
+          OutlinedButton.icon(
+            onPressed: _sendingCorrection ? null : () => _requestCorrection(report.reportId),
+            icon: const Icon(Icons.flag_outlined),
+            label: const Text('الإبلاغ عن معلومات غير صحيحة'),
+          ),
         if (imageUrl != null && imageUrl.trim().isNotEmpty)
           ClipRRect(
             borderRadius: BorderRadius.circular(12),

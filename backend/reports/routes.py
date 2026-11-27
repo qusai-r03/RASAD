@@ -14,6 +14,9 @@ from fastapi import (
 )
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from firebase_admin import auth, firestore
+from backend.reports.municipality_service import (
+    BoundaryConfigurationError, LocationOutsideCoverage, resolve_location,
+)
 
 
 router = APIRouter(
@@ -38,6 +41,8 @@ async def create_report(
     description: str = Form(""),
     latitude: float = Form(...),
     longitude: float = Form(...),
+    aiPredictedCategory: str | None = Form(None, max_length=100),
+    gpsAccuracyMeters: float | None = Form(None, ge=0, allow_inf_nan=False),
     image: UploadFile = File(...),
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
@@ -95,6 +100,13 @@ async def create_report(
             status_code=400,
             detail="Invalid GPS coordinates",
         )
+
+    try:
+        municipality_id, area_id = resolve_location(latitude, longitude)
+    except BoundaryConfigurationError as error:
+        raise HTTPException(503, "بيانات حدود البلديات غير متاحة حالياً") from error
+    except LocationOutsideCoverage as error:
+        raise HTTPException(422, "تعذر تحديد بلدية واحدة لهذا الموقع ضمن نطاق الخدمة") from error
 
     # 4. Validate image.
     if image.content_type not in ALLOWED_IMAGE_TYPES:
@@ -160,8 +172,12 @@ async def create_report(
     report_data = {
         "reportId": report_ref.id,
         "citizenId": citizen_id,
-        "municipalityId": None,
+        "municipalityId": municipality_id,
         "category": category,
+        "citizenSelectedCategory": category,
+        "aiPredictedCategory": (aiPredictedCategory or "").strip() or None,
+        "gpsAccuracyMeters": gpsAccuracyMeters,
+        "area_id": area_id,
         "description": description,
         "status": "pending",
         "priority": "medium",

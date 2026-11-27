@@ -16,6 +16,7 @@ const {
   getDocs,
   query,
   setDoc,
+  serverTimestamp,
   updateDoc,
   where,
 } = require('firebase/firestore');
@@ -65,6 +66,13 @@ await testEnv.withSecurityRulesDisabled(async (context) => {
 
     const reportA = doc(citizenA.firestore(), 'reports/CMP-001');
     const reportB = doc(citizenB.firestore(), 'reports/CMP-001');
+
+    const correctionPath = 'reports/CMP-001/correctionRequests/request1';
+    const correction = { message: 'Incorrect description', createdAt: serverTimestamp() };
+    await assertFails(setDoc(doc(citizenB.firestore(), correctionPath), correction));
+    await assertFails(setDoc(doc(citizenA.firestore(), correctionPath), { ...correction, status: 'approved' }));
+    await assertSucceeds(setDoc(doc(citizenA.firestore(), correctionPath), correction));
+    await assertFails(updateDoc(doc(citizenA.firestore(), correctionPath), { message: 'Changed' }));
 
     // Test 1: Report owner can read their report.
     await assertSucceeds(getDoc(reportA));

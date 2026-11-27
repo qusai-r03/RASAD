@@ -36,8 +36,7 @@ class _AddReportScreenState extends State<AddReportScreen> {
     );
   }
 
-  // Open camera and capture photo
-  Future<void> _takePhoto() async {
+  Future<void> _pickPhoto(ImageSource source) async {
     if (isTakingPhoto) return;
 
     setState(() {
@@ -48,7 +47,7 @@ class _AddReportScreenState extends State<AddReportScreen> {
       debugPrint('CAMERA: Opening camera...');
 
       final XFile? photo = await _picker.pickImage(
-        source: ImageSource.camera,
+        source: source,
         imageQuality: 85,
         maxWidth: 1600,
       );
@@ -64,7 +63,7 @@ class _AddReportScreenState extends State<AddReportScreen> {
           previewBytes = bytes;
         });
 
-        _showMessage('تم التقاط الصورة بنجاح');
+        _showMessage('تم اختيار الصورة بنجاح');
       } else {
         debugPrint('CAMERA: Photo capture cancelled');
       }
@@ -75,7 +74,7 @@ class _AddReportScreenState extends State<AddReportScreen> {
 
       if (!mounted) return;
 
-      _showMessage('تعذر فتح الكاميرا. حاولي مرة أخرى.');
+      _showMessage('تعذّر اختيار الصورة. حاول مرة أخرى.');
     } finally {
       if (mounted) {
         setState(() {
@@ -229,7 +228,7 @@ class _AddReportScreenState extends State<AddReportScreen> {
                       height: 55,
 
                       child: ElevatedButton.icon(
-                        onPressed: isTakingPhoto ? null : _takePhoto,
+                        onPressed: isTakingPhoto ? null : () => _pickPhoto(ImageSource.camera),
 
                         icon: isTakingPhoto
                             ? const SizedBox(
@@ -245,7 +244,7 @@ class _AddReportScreenState extends State<AddReportScreen> {
 
                         label: Text(
                           isTakingPhoto
-                              ? 'جاري فتح الكاميرا...'
+                              ? 'جارٍ اختيار الصورة...'
                               : selectedImage == null
                               ? 'التقاط صورة'
                               : 'إعادة التقاط الصورة',
@@ -268,6 +267,13 @@ class _AddReportScreenState extends State<AddReportScreen> {
                     ),
 
                     const SizedBox(height: 35),
+
+                    OutlinedButton.icon(
+                      onPressed: isTakingPhoto ? null : () => _pickPhoto(ImageSource.gallery),
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: const Text('اختيار صورة من المعرض'),
+                    ),
+                    const SizedBox(height: 16),
 
                     // Description Label
                     const Text(
