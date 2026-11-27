@@ -60,6 +60,8 @@ match /reports/{reportId} {
     ||
     (
       isActiveEmployee()
+      && get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('municipalityId', null) is string
+      && get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.municipalityId.matches('.*[^\\s].*')
       && resource.data.municipalityId ==
          get(
            /databases/$(database)/documents/employees/$(request.auth.uid)
@@ -67,6 +69,16 @@ match /reports/{reportId} {
     );
 
   allow create, update, delete: if false;
+
+  match /correctionRequests/{requestId} {
+    allow create: if isActiveCitizen()
+      && get(/databases/$(database)/documents/reports/$(reportId)).data.citizenId == request.auth.uid
+      && request.resource.data.keys().hasOnly(['message', 'createdAt'])
+      && request.resource.data.message is string
+      && request.resource.data.message.size() > 0
+      && request.resource.data.message.size() <= 1000
+      && request.resource.data.createdAt == request.time;
+  }
 }
 
   }

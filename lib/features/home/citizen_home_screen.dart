@@ -330,7 +330,7 @@ class _CitizenHomeScreenState extends State<CitizenHomeScreen> {
             'and map services are connected.',
           ),
           const SizedBox(height: 8),
-          LinkRow(context.tr('viewOnMap'), onTap: _comingSoon),
+          LinkRow(context.tr('viewOnMap'), onTap: () => context.go('/map')),
         ],
       ),
     );

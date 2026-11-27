@@ -3,3 +3,4 @@ uvicorn[standard]
 firebase-admin
 cloudinary==1.47.0
 python-multipart==0.0.34
+Shapely>=2.0,<3
