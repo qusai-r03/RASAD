@@ -333,6 +333,145 @@ console.log('PASS: Employee cannot read another municipality reports');
       'PASS: Suspended employee cannot update priority'
     );
 
+// Prepare a report containing the proposed classification fields.
+await testEnv.withSecurityRulesDisabled(async (context) => {
+  await setDoc(
+    doc(context.firestore(), 'reports/CMP-CLASSIFICATION'),
+    {
+      reportId: 'CMP-CLASSIFICATION',
+      citizenId: 'citizenA',
+      municipalityId: 'amman',
+      category: 'pothole',
+      aiPredictedCategory: 'garbage',
+      citizenSelectedCategory: 'pothole',
+      officialCategory: 'water_leak',
+      reviewStatus: 'approved',
+      status: 'pending',
+      priority: 'medium',
+    },
+  );
+});
+
+const employeeClassificationReport = doc(
+  employeeA.firestore(),
+  'reports/CMP-CLASSIFICATION',
+);
+
+const citizenClassificationReport = doc(
+  citizenA.firestore(),
+  'reports/CMP-CLASSIFICATION',
+);
+
+// Test 21: Employee can read all classification fields.
+const classificationSnapshot = await assertSucceeds(
+  getDoc(employeeClassificationReport),
+);
+
+const classificationData = classificationSnapshot.data();
+
+if (
+  classificationData.aiPredictedCategory !== 'garbage' ||
+  classificationData.citizenSelectedCategory !== 'pothole' ||
+  classificationData.officialCategory !== 'water_leak' ||
+  classificationData.reviewStatus !== 'approved'
+) {
+  throw new Error('Classification data does not match');
+}
+
+console.log('PASS: Employee can read classification fields');
+
+// Test 22: Citizen can read their own report.
+await assertSucceeds(
+  getDoc(citizenClassificationReport),
+);
+
+console.log('PASS: Citizen can read their classified report');
+
+// Test 23: Another citizen cannot read the report.
+await assertFails(
+  getDoc(
+    doc(
+      citizenB.firestore(),
+      'reports/CMP-CLASSIFICATION',
+    ),
+  ),
+);
+
+console.log('PASS: Another citizen cannot read classified report');
+
+// Test 24: Citizen cannot change the official category.
+await assertFails(
+  updateDoc(citizenClassificationReport, {
+    officialCategory: 'garbage',
+  }),
+);
+
+console.log('PASS: Citizen cannot change official category');
+
+// Test 25: Citizen cannot change AI prediction.
+await assertFails(
+  updateDoc(citizenClassificationReport, {
+    aiPredictedCategory: 'pothole',
+  }),
+);
+
+console.log('PASS: Citizen cannot change AI prediction');
+
+// Test 26: Citizen cannot change review status.
+await assertFails(
+  updateDoc(citizenClassificationReport, {
+    reviewStatus: 'rejected',
+  }),
+);
+
+console.log('PASS: Citizen cannot change review status');
+
+// Test 27: Official category editing remains locked.
+await assertFails(
+  updateDoc(employeeClassificationReport, {
+    officialCategory: 'garbage',
+  }),
+);
+
+console.log('PASS: Official category editing remains locked');
+
+// Test 28: Employee review remains locked.
+await assertFails(
+  updateDoc(employeeClassificationReport, {
+    reviewStatus: 'rejected',
+  }),
+);
+
+console.log('PASS: Employee review remains locked');
+
+// Test 29: Priority editing still works.
+await assertSucceeds(
+  updateDoc(employeeClassificationReport, {
+    priority: 'high',
+  }),
+);
+
+console.log('PASS: Priority editing still works');
+
+// Test 30: Classification fields remain unchanged.
+const updatedSnapshot = await assertSucceeds(
+  getDoc(employeeClassificationReport),
+);
+
+const updatedData = updatedSnapshot.data();
+
+if (
+  updatedData.priority !== 'high' ||
+  updatedData.aiPredictedCategory !== 'garbage' ||
+  updatedData.citizenSelectedCategory !== 'pothole' ||
+  updatedData.officialCategory !== 'water_leak' ||
+  updatedData.reviewStatus !== 'approved'
+) {
+  throw new Error('Unexpected classification modification');
+}
+
+console.log('PASS: Priority update preserves classification fields');
+
 
   } finally {
     await testEnv.cleanup();

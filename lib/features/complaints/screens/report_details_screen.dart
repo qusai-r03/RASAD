@@ -170,8 +170,11 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
           const SizedBox(height: 24),
 
           // 1. AI category comparison.
-          const ReportCategoryComparison(),
-
+          ReportCategoryComparison(
+            aiPrediction: report.aiPredictedCategory,
+            citizenSelection: report.citizenSelectedCategory,
+            officialCategory: report.officialCategory,
+          ),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 12),
             child: Text(

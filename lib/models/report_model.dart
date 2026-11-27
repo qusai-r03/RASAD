@@ -4,7 +4,18 @@ class ReportModel {
   final String reportId;
   final String citizenId;
   final String? municipalityId;
+
+  // Existing report category.
   final String category;
+
+  // Proposed Week 3 classification fields.
+  final String? aiPredictedCategory;
+  final String? citizenSelectedCategory;
+  final String? officialCategory;
+
+  // Proposed employee review field.
+  final String? reviewStatus;
+
   final String description;
   final String status;
   final String priority;
@@ -18,6 +29,10 @@ class ReportModel {
     required this.citizenId,
     this.municipalityId,
     required this.category,
+    this.aiPredictedCategory,
+    this.citizenSelectedCategory,
+    this.officialCategory,
+    this.reviewStatus,
     required this.description,
     required this.status,
     required this.priority,
@@ -43,6 +58,16 @@ class ReportModel {
     };
   }
 
+  static String? _readOptionalString(dynamic value) {
+    if (value is! String) {
+      return null;
+    }
+
+    final trimmedValue = value.trim();
+
+    return trimmedValue.isEmpty ? null : trimmedValue;
+  }
+
   factory ReportModel.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> document,
   ) {
@@ -56,7 +81,22 @@ class ReportModel {
       reportId: data['reportId'] as String? ?? document.id,
       citizenId: data['citizenId'] as String,
       municipalityId: data['municipalityId'] as String?,
+
+      // Existing category.
       category: data['category'] as String,
+
+      // Read separate categories when available.
+      aiPredictedCategory: _readOptionalString(data['aiPredictedCategory']),
+
+      citizenSelectedCategory: _readOptionalString(
+        data['citizenSelectedCategory'],
+      ),
+
+      officialCategory: _readOptionalString(data['officialCategory']),
+
+      // Read employee review status when available.
+      reviewStatus: _readOptionalString(data['reviewStatus']),
+
       description: data['description'] as String,
       status: data['status'] as String,
       priority: data['priority'] as String,
