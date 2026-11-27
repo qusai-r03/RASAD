@@ -32,9 +32,20 @@ service cloud.firestore {
         ).data.accountStatus == 'active';
     }
 
+    // An employee must have a valid municipality before accessing reports.
+    function hasValidEmployeeMunicipality() {
+      return isActiveEmployee()
+        && get(
+          /databases/$(database)/documents/employees/$(request.auth.uid)
+        ).data.get('municipalityId', null) is string
+        && get(
+          /databases/$(database)/documents/employees/$(request.auth.uid)
+        ).data.municipalityId.matches('.*[^\\\\s].*');
+    }
+
     // Check whether the employee belongs to the report municipality.
     function isAuthorizedReportEmployee() {
-      return isActiveEmployee()
+      return hasValidEmployeeMunicipality()
         && resource.data.get('municipalityId', null) is string
         && resource.data.municipalityId != ''
         && resource.data.municipalityId ==
@@ -108,7 +119,7 @@ service cloud.firestore {
         )
         ||
         (
-          isActiveEmployee()
+          hasValidEmployeeMunicipality()
           && resource.data.municipalityId ==
             get(
               /databases/$(database)/documents/employees/$(request.auth.uid)

@@ -715,6 +715,45 @@ if (
 
 console.log('PASS: Final report data integrity verified');
 
+    // Tests 51-56: Unassigned reports and malformed employee profiles.
+    await assertFails(getDoc(unassignedReport));
+    console.log('PASS: Assigned employee cannot read unassigned report');
+
+    await assertSucceeds(getDoc(doc(citizenA.firestore(), 'reports/CMP-UNASSIGNED')));
+    console.log('PASS: Citizen can read own unassigned report');
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      for (const [uid, municipalityId] of [
+        ['employeeNull', null],
+        ['employeeEmpty', ''],
+        ['employeeMissing', undefined],
+      ]) {
+        const profile = {role: 'employee', accountStatus: 'active'};
+        if (municipalityId !== undefined) profile.municipalityId = municipalityId;
+        await setDoc(doc(db, 'employees', uid), profile);
+      }
+      await setDoc(doc(db, 'reports/CMP-EMPTY-MUNICIPALITY'), {
+        citizenId: 'citizenA', municipalityId: '', category: 'pothole',
+        status: 'pending', priority: 'medium',
+      });
+    });
+
+    for (const [uid, reportId] of [
+      ['employeeNull', 'CMP-UNASSIGNED'],
+      ['employeeEmpty', 'CMP-EMPTY-MUNICIPALITY'],
+      ['employeeMissing', 'CMP-001'],
+    ]) {
+      const db = testEnv.authenticatedContext(uid).firestore();
+      await assertFails(getDoc(doc(db, 'reports', reportId)));
+      console.log('PASS: Invalid employee municipality cannot read report: ' + uid);
+    }
+
+    const invalidEmployeeDb = testEnv.authenticatedContext('employeeNull').firestore();
+    await assertFails(getDocs(query(collection(invalidEmployeeDb, 'reports'),
+      where('municipalityId', '==', null))));
+    console.log('PASS: Invalid employee municipality cannot query unassigned reports');
+
   } finally {
     await testEnv.cleanup();
   }
