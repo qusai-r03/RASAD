@@ -121,11 +121,12 @@ class _EmployeeReportEditingPanelState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Employee Report Editing',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              widget.allowCategoryEditing
+                  ? 'Employee Report Editing'
+                  : 'Report Priority Editing',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-
             const SizedBox(height: 16),
 
             TextField(
@@ -136,7 +137,7 @@ class _EmployeeReportEditingPanelState
                 border: const OutlineInputBorder(),
                 helperText: widget.allowCategoryEditing
                     ? null
-                    : 'Category editing will be enabled later.',
+                    : 'Use the Official Category Correction section.',
                 suffixIcon: widget.allowCategoryEditing
                     ? null
                     : const Icon(Icons.lock_outline),

@@ -55,7 +55,7 @@ class _OfficialCategoryPreviewScreenState
               OfficialCategoryEditor(
                 initialCategory: _confirmedCategory,
                 categories: categories,
-                onCategoryChanged: (category) {
+                onCategoryChanged: (category) async {
                   setState(() {
                     _confirmedCategory = category;
                   });

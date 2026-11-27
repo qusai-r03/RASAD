@@ -4,91 +4,131 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-function isActiveCitizen() {
-  return request.auth != null
-    && exists(
-      /databases/$(database)/documents/citizens/$(request.auth.uid)
-    )
-    && get(
-      /databases/$(database)/documents/citizens/$(request.auth.uid)
-    ).data.role == 'citizen'
-    && get(
-      /databases/$(database)/documents/citizens/$(request.auth.uid)
-    ).data.accountStatus == 'active';
-}
+    // Check whether the authenticated user is an active citizen.
+    function isActiveCitizen() {
+      return request.auth != null
+        && exists(
+          /databases/$(database)/documents/citizens/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/citizens/$(request.auth.uid)
+        ).data.role == 'citizen'
+        && get(
+          /databases/$(database)/documents/citizens/$(request.auth.uid)
+        ).data.accountStatus == 'active';
+    }
 
-function isActiveEmployee() {
-  return request.auth != null
-    && exists(
-      /databases/$(database)/documents/employees/$(request.auth.uid)
-    )
-    && get(
-      /databases/$(database)/documents/employees/$(request.auth.uid)
-    ).data.role == 'employee'
-    && get(
-      /databases/$(database)/documents/employees/$(request.auth.uid)
-    ).data.accountStatus == 'active';
-}
+    // Check whether the authenticated user is an active employee.
+    function isActiveEmployee() {
+      return request.auth != null
+        && exists(
+          /databases/$(database)/documents/employees/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/employees/$(request.auth.uid)
+        ).data.role == 'employee'
+        && get(
+          /databases/$(database)/documents/employees/$(request.auth.uid)
+        ).data.accountStatus == 'active';
+    }
 
+    // Check whether the employee belongs to the report municipality.
+    function isAuthorizedReportEmployee() {
+      return isActiveEmployee()
+        && resource.data.get('municipalityId', null) is string
+        && resource.data.municipalityId != ''
+        && resource.data.municipalityId ==
+          get(
+            /databases/$(database)/documents/employees/$(request.auth.uid)
+          ).data.get('municipalityId', null);
+    }
+
+    // Check that exactly one permitted field has changed.
+    function changesOnly(field) {
+      let changedFields =
+        request.resource.data.diff(resource.data).affectedKeys();
+
+      return changedFields.hasOnly([field])
+        && changedFields.hasAny([field]);
+    }
+
+    // Validate priority updates.
+    function isValidPriorityUpdate() {
+      return changesOnly('priority')
+        && request.resource.data.get('priority', null)
+          in ['low', 'medium', 'high'];
+    }
+
+    // Validate official category updates.
+    function isValidOfficialCategoryUpdate() {
+      return changesOnly('officialCategory')
+        && request.resource.data.get('officialCategory', null)
+          in [
+            'pothole',
+            'garbage',
+            'street_light',
+            'water_leak'
+          ];
+    }
+
+    // Validate employee review decisions.
+    function isValidReviewUpdate() {
+      return changesOnly('reviewStatus')
+        && request.resource.data.get('reviewStatus', null)
+          in ['approved', 'rejected'];
+    }
 
     // Citizens can read only their own profile.
     match /citizens/{userId} {
+
       allow get: if request.auth != null
-                 && request.auth.uid == userId;
+        && request.auth.uid == userId;
 
       allow list, create, update, delete: if false;
     }
 
     // Employees can read only their own profile.
     match /employees/{userId} {
+
       allow get: if request.auth != null
-                 && request.auth.uid == userId;
+        && request.auth.uid == userId;
 
       allow list, create, update, delete: if false;
     }
 
-    // Only the report owner can read the report.
+    // Report permissions.
+    match /reports/{reportId} {
 
+      // Citizens can read their own reports.
+      // Employees can read reports in their municipality.
+      allow get, list: if
+        (
+          isActiveCitizen()
+          && resource.data.citizenId == request.auth.uid
+        )
+        ||
+        (
+          isActiveEmployee()
+          && resource.data.municipalityId ==
+            get(
+              /databases/$(database)/documents/employees/$(request.auth.uid)
+            ).data.municipalityId
+        );
 
-match /reports/{reportId} {
+      // Client-side creation and deletion remain blocked.
+      allow create, delete: if false;
 
-  allow get, list: if
-    (
-      isActiveCitizen()
-      && resource.data.citizenId == request.auth.uid
-    )
-    ||
-    (
-      isActiveEmployee()
-      && resource.data.municipalityId ==
-         get(
-           /databases/$(database)/documents/employees/$(request.auth.uid)
-         ).data.municipalityId
-    );
-
-
-  // Report creation and deletion remain blocked.
-  allow create, delete: if false;
-
-  // Only an active employee from the report's municipality
-  // may update the priority field.
-  allow update: if
-    isActiveEmployee()
-
-    && resource.data.municipalityId ==
-       get(
-         /databases/$(database)/documents/employees/$(request.auth.uid)
-       ).data.municipalityId
-
-    && request.resource.data.diff(resource.data)
-       .affectedKeys().hasOnly(['priority'])
-
-    && request.resource.data.diff(resource.data)
-       .affectedKeys().hasAny(['priority'])
-
-    && request.resource.data.priority
-       in ['low', 'medium', 'high'];
-}
-
+      // Authorized employees can perform specific updates.
+      allow update: if
+        isAuthorizedReportEmployee()
+        &&
+        (
+          isValidPriorityUpdate()
+          ||
+          isValidOfficialCategoryUpdate()
+          ||
+          isValidReviewUpdate()
+        );
+    }
   }
 }

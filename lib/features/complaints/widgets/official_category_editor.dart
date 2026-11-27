@@ -3,13 +3,15 @@ import 'package:flutter/material.dart';
 class OfficialCategoryEditor extends StatefulWidget {
   final String? initialCategory;
   final List<String> categories;
-  final ValueChanged<String> onCategoryChanged;
+  final Future<void> Function(String category) onCategoryChanged;
+  final bool isPreview;
 
   const OfficialCategoryEditor({
     super.key,
     this.initialCategory,
     required this.categories,
     required this.onCategoryChanged,
+    this.isPreview = true,
   });
 
   @override
@@ -18,6 +20,8 @@ class OfficialCategoryEditor extends StatefulWidget {
 
 class _OfficialCategoryEditorState extends State<OfficialCategoryEditor> {
   String? _selectedCategory;
+
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -28,13 +32,35 @@ class _OfficialCategoryEditorState extends State<OfficialCategoryEditor> {
         : null;
   }
 
+  @override
+  void didUpdateWidget(covariant OfficialCategoryEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.initialCategory != widget.initialCategory) {
+      _selectedCategory = widget.categories.contains(widget.initialCategory)
+          ? widget.initialCategory
+          : null;
+    }
+  }
+
   Future<void> _confirmCategory() async {
+    if (_isSaving) return;
+
     final category = _selectedCategory;
 
-    if (category == null) {
+    if (category == null || !widget.categories.contains(category)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a category.')),
+        const SnackBar(content: Text('Please select a valid category.')),
       );
+
+      return;
+    }
+
+    if (category == widget.initialCategory) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The category has not changed.')),
+      );
+
       return;
     }
 
@@ -56,9 +82,43 @@ class _OfficialCategoryEditorState extends State<OfficialCategoryEditor> {
       ),
     );
 
-    if (!mounted || confirmed != true) return;
+    if (!mounted || confirmed != true || _isSaving) {
+      return;
+    }
 
-    widget.onCategoryChanged(category);
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await widget.onCategoryChanged(category);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.isPreview
+                ? 'Category confirmed locally.'
+                : 'Official category updated successfully.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to update the official category.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
 
   @override
@@ -73,13 +133,20 @@ class _OfficialCategoryEditorState extends State<OfficialCategoryEditor> {
               'Official Category Correction',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Preview only - no Firebase updates.',
-              style: TextStyle(color: Colors.orange),
-            ),
+
+            if (widget.isPreview) ...[
+              const SizedBox(height: 8),
+
+              const Text(
+                'Preview only - no Firebase updates.',
+                style: TextStyle(color: Colors.orange),
+              ),
+            ],
+
             const SizedBox(height: 16),
+
             DropdownButtonFormField<String>(
+              key: ValueKey(widget.initialCategory),
               initialValue: _selectedCategory,
               decoration: const InputDecoration(
                 labelText: 'Select Official Category',
@@ -88,19 +155,29 @@ class _OfficialCategoryEditorState extends State<OfficialCategoryEditor> {
               items: widget.categories.map((category) {
                 return DropdownMenuItem(value: category, child: Text(category));
               }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedCategory = value;
-                });
-              },
+              onChanged: _isSaving
+                  ? null
+                  : (value) {
+                      setState(() {
+                        _selectedCategory = value;
+                      });
+                    },
             ),
+
             const SizedBox(height: 20),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _confirmCategory,
-                icon: const Icon(Icons.check_circle_outline),
-                label: const Text('Confirm Category'),
+                onPressed: _isSaving ? null : _confirmCategory,
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check_circle_outline),
+                label: Text(_isSaving ? 'Saving...' : 'Confirm Category'),
               ),
             ),
           ],

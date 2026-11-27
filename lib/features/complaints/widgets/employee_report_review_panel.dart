@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class EmployeeReportReviewPanel extends StatefulWidget {
   final String initialReviewStatus;
+  final bool isPreview;
 
   final Future<void> Function(String reviewStatus) onReview;
 
@@ -9,8 +10,8 @@ class EmployeeReportReviewPanel extends StatefulWidget {
     super.key,
     required this.initialReviewStatus,
     required this.onReview,
+    this.isPreview = true,
   });
-
   @override
   State<EmployeeReportReviewPanel> createState() =>
       _EmployeeReportReviewPanelState();
@@ -110,7 +111,9 @@ class _EmployeeReportReviewPanelState extends State<EmployeeReportReviewPanel> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            newStatus == 'approved'
+            widget.isPreview
+                ? 'Review decision confirmed locally. Not saved to Firebase.'
+                : newStatus == 'approved'
                 ? 'Report approved successfully.'
                 : 'Report rejected successfully.',
           ),

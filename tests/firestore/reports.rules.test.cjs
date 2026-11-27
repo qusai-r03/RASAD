@@ -11,6 +11,7 @@ const {
 const {
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -19,7 +20,6 @@ const {
   updateDoc,
   where,
 } = require('firebase/firestore');
-
 async function main() {
   const testEnv = await initializeTestEnvironment({
     projectId: 'demo-rasd',
@@ -426,24 +426,27 @@ await assertFails(
 
 console.log('PASS: Citizen cannot change review status');
 
-// Test 27: Official category editing remains locked.
-await assertFails(
+// Test 27: Authorized employee can update official category.
+await assertSucceeds(
   updateDoc(employeeClassificationReport, {
     officialCategory: 'garbage',
   }),
 );
 
-console.log('PASS: Official category editing remains locked');
+console.log(
+  'PASS: Authorized employee can update official category'
+);
 
-// Test 28: Employee review remains locked.
-await assertFails(
+// Test 28: Authorized employee can update review status.
+await assertSucceeds(
   updateDoc(employeeClassificationReport, {
     reviewStatus: 'rejected',
   }),
 );
 
-console.log('PASS: Employee review remains locked');
-
+console.log(
+  'PASS: Authorized employee can update review status'
+);
 // Test 29: Priority editing still works.
 await assertSucceeds(
   updateDoc(employeeClassificationReport, {
@@ -453,7 +456,7 @@ await assertSucceeds(
 
 console.log('PASS: Priority editing still works');
 
-// Test 30: Classification fields remain unchanged.
+// Test 30: Priority update preserves classification fields.
 const updatedSnapshot = await assertSucceeds(
   getDoc(employeeClassificationReport),
 );
@@ -464,14 +467,253 @@ if (
   updatedData.priority !== 'high' ||
   updatedData.aiPredictedCategory !== 'garbage' ||
   updatedData.citizenSelectedCategory !== 'pothole' ||
-  updatedData.officialCategory !== 'water_leak' ||
-  updatedData.reviewStatus !== 'approved'
+  updatedData.officialCategory !== 'garbage' ||
+  updatedData.reviewStatus !== 'rejected'
 ) {
   throw new Error('Unexpected classification modification');
 }
 
-console.log('PASS: Priority update preserves classification fields');
+console.log(
+  'PASS: Priority update preserves classification fields'
+);
 
+// Test 31: Employee cannot modify AI prediction.
+await assertFails(
+  updateDoc(employeeClassificationReport, {
+    aiPredictedCategory: 'pothole',
+  }),
+);
+
+console.log('PASS: Employee cannot modify AI prediction');
+
+// Test 32: Employee cannot modify citizen selection.
+await assertFails(
+  updateDoc(employeeClassificationReport, {
+    citizenSelectedCategory: 'garbage',
+  }),
+);
+
+console.log('PASS: Employee cannot modify citizen selection');
+
+// Test 33: Invalid official categories are denied.
+await assertFails(
+  updateDoc(employeeClassificationReport, {
+    officialCategory: 'invalid_category',
+  }),
+);
+
+console.log('PASS: Invalid official category is denied');
+
+// Test 34: Invalid review decisions are denied.
+await assertFails(
+  updateDoc(employeeClassificationReport, {
+    reviewStatus: 'invalid_status',
+  }),
+);
+
+console.log('PASS: Invalid review status is denied');
+
+// Test 35: Employee cannot update multiple fields together.
+await assertFails(
+  updateDoc(employeeClassificationReport, {
+    officialCategory: 'pothole',
+    priority: 'low',
+  }),
+);
+
+console.log('PASS: Multiple-field updates are denied');
+
+// Test 36: Employee cannot delete protected fields.
+await assertFails(
+  updateDoc(employeeClassificationReport, {
+    aiPredictedCategory: deleteField(),
+  }),
+);
+
+console.log('PASS: Protected field deletion is denied');
+
+// Test 37: Employee cannot delete official category.
+await assertFails(
+  updateDoc(employeeClassificationReport, {
+    officialCategory: deleteField(),
+  }),
+);
+
+console.log('PASS: Official category deletion is denied');
+
+// Test 38: Employee cannot delete review status.
+await assertFails(
+  updateDoc(employeeClassificationReport, {
+    reviewStatus: deleteField(),
+  }),
+);
+
+console.log('PASS: Review status deletion is denied');
+
+// Test 39: Employee cannot change report ownership.
+await assertFails(
+  updateDoc(employeeClassificationReport, {
+    citizenId: 'citizenB',
+  }),
+);
+
+console.log('PASS: Report ownership modification is denied');
+
+// Test 40: Employee cannot change report municipality.
+await assertFails(
+  updateDoc(employeeClassificationReport, {
+    municipalityId: 'irbid',
+  }),
+);
+
+console.log('PASS: Municipality modification is denied');
+
+// Test 41: Suspended employee cannot update category.
+await assertFails(
+  updateDoc(
+    doc(
+      employeeB.firestore(),
+      'reports/CMP-CLASSIFICATION',
+    ),
+    {
+      officialCategory: 'pothole',
+    },
+  ),
+);
+
+console.log('PASS: Suspended employee cannot update category');
+
+// Test 42: Suspended employee cannot update review.
+await assertFails(
+  updateDoc(
+    doc(
+      employeeB.firestore(),
+      'reports/CMP-CLASSIFICATION',
+    ),
+    {
+      reviewStatus: 'approved',
+    },
+  ),
+);
+
+console.log('PASS: Suspended employee cannot update review');
+
+// Test 43: Employee cannot update another municipality category.
+await assertFails(
+  updateDoc(
+    doc(employeeA.firestore(), 'reports/CMP-EMP'),
+    {
+      officialCategory: 'pothole',
+    },
+  ),
+);
+
+console.log('PASS: Cross-municipality category update is denied');
+
+// Test 44: Employee cannot review another municipality report.
+await assertFails(
+  updateDoc(
+    doc(employeeA.firestore(), 'reports/CMP-EMP'),
+    {
+      reviewStatus: 'approved',
+    },
+  ),
+);
+
+console.log('PASS: Cross-municipality review is denied');
+
+// Test 45: Authorized employee can approve a report.
+await assertSucceeds(
+  updateDoc(employeeClassificationReport, {
+    reviewStatus: 'approved',
+  }),
+);
+
+console.log('PASS: Authorized employee can approve report');
+
+// Test 46: Employee can correct official category again.
+await assertSucceeds(
+  updateDoc(employeeClassificationReport, {
+    officialCategory: 'water_leak',
+  }),
+);
+
+console.log('PASS: Authorized employee can correct category');
+
+// Prepare a report without an assigned municipality.
+await testEnv.withSecurityRulesDisabled(async (context) => {
+  await setDoc(
+    doc(context.firestore(), 'reports/CMP-UNASSIGNED'),
+    {
+      citizenId: 'citizenA',
+      municipalityId: null,
+      category: 'pothole',
+      status: 'pending',
+      priority: 'medium',
+    },
+  );
+});
+
+const unassignedReport = doc(
+  employeeA.firestore(),
+  'reports/CMP-UNASSIGNED',
+);
+
+// Test 47: Unassigned report category cannot be updated.
+await assertFails(
+  updateDoc(unassignedReport, {
+    officialCategory: 'garbage',
+  }),
+);
+
+console.log('PASS: Unassigned report category update is denied');
+
+// Test 48: Unassigned report cannot be reviewed.
+await assertFails(
+  updateDoc(unassignedReport, {
+    reviewStatus: 'approved',
+  }),
+);
+
+console.log('PASS: Unassigned report review is denied');
+
+// Test 49: Unauthenticated users cannot update classification.
+await assertFails(
+  updateDoc(
+    doc(
+      guest.firestore(),
+      'reports/CMP-CLASSIFICATION',
+    ),
+    {
+      officialCategory: 'pothole',
+    },
+  ),
+);
+
+console.log('PASS: Guest classification update is denied');
+
+// Test 50: Verify final saved data and protected fields.
+const finalSnapshot = await assertSucceeds(
+  getDoc(employeeClassificationReport),
+);
+
+const finalData = finalSnapshot.data();
+
+if (
+  finalData.officialCategory !== 'water_leak' ||
+  finalData.reviewStatus !== 'approved' ||
+  finalData.aiPredictedCategory !== 'garbage' ||
+  finalData.citizenSelectedCategory !== 'pothole' ||
+  finalData.category !== 'pothole' ||
+  finalData.priority !== 'high' ||
+  finalData.status !== 'pending' ||
+  finalData.citizenId !== 'citizenA' ||
+  finalData.municipalityId !== 'amman'
+) {
+  throw new Error('Final report data verification failed');
+}
+
+console.log('PASS: Final report data integrity verified');
 
   } finally {
     await testEnv.cleanup();

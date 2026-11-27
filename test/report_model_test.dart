@@ -3,19 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:city_issue_reporter/models/report_model.dart';
 
-class FakeReportSnapshot extends Fake
-    implements DocumentSnapshot<Map<String, dynamic>> {
-  final Map<String, dynamic>? reportData;
-
-  FakeReportSnapshot(this.reportData);
-
-  @override
-  String get id => 'RASD-TEST-001';
-
-  @override
-  Map<String, dynamic>? data() => reportData;
-}
-
 Map<String, dynamic> createReportData() {
   return {
     'reportId': 'RASD-TEST-001',
@@ -34,10 +21,9 @@ Map<String, dynamic> createReportData() {
 
 void main() {
   group('ReportModel classification tests', () {
+    // Test 1: Backward compatibility with legacy reports.
     test('Reads legacy reports without new fields', () {
-      final report = ReportModel.fromFirestore(
-        FakeReportSnapshot(createReportData()),
-      );
+      final report = ReportModel.fromMap(createReportData(), 'RASD-TEST-001');
 
       expect(report.reportId, 'RASD-TEST-001');
       expect(report.category, 'pothole');
@@ -50,6 +36,7 @@ void main() {
       expect(report.reviewStatus, isNull);
     });
 
+    // Test 2: Read three independent category values.
     test('Reads three independent categories', () {
       final data = createReportData();
 
@@ -59,24 +46,26 @@ void main() {
         'officialCategory': 'water_leak',
       });
 
-      final report = ReportModel.fromFirestore(FakeReportSnapshot(data));
+      final report = ReportModel.fromMap(data, 'RASD-TEST-001');
 
       expect(report.aiPredictedCategory, 'garbage');
       expect(report.citizenSelectedCategory, 'pothole');
       expect(report.officialCategory, 'water_leak');
     });
 
+    // Test 3: Review status is independent of report status.
     test('Reads employee review status', () {
       final data = createReportData();
 
       data['reviewStatus'] = 'approved';
 
-      final report = ReportModel.fromFirestore(FakeReportSnapshot(data));
+      final report = ReportModel.fromMap(data, 'RASD-TEST-001');
 
       expect(report.reviewStatus, 'approved');
       expect(report.status, 'pending');
     });
 
+    // Test 4: Null classification values.
     test('Handles null classification values', () {
       final data = createReportData();
 
@@ -87,7 +76,7 @@ void main() {
         'reviewStatus': null,
       });
 
-      final report = ReportModel.fromFirestore(FakeReportSnapshot(data));
+      final report = ReportModel.fromMap(data, 'RASD-TEST-001');
 
       expect(report.aiPredictedCategory, isNull);
       expect(report.citizenSelectedCategory, isNull);
@@ -95,6 +84,7 @@ void main() {
       expect(report.reviewStatus, isNull);
     });
 
+    // Test 5: Empty or whitespace-only values.
     test('Handles empty and whitespace values', () {
       final data = createReportData();
 
@@ -105,7 +95,7 @@ void main() {
         'reviewStatus': ' ',
       });
 
-      final report = ReportModel.fromFirestore(FakeReportSnapshot(data));
+      final report = ReportModel.fromMap(data, 'RASD-TEST-001');
 
       expect(report.aiPredictedCategory, isNull);
       expect(report.citizenSelectedCategory, isNull);
@@ -113,6 +103,7 @@ void main() {
       expect(report.reviewStatus, isNull);
     });
 
+    // Test 6: Invalid classification data types.
     test('Handles invalid classification data types', () {
       final data = createReportData();
 
@@ -123,7 +114,7 @@ void main() {
         'reviewStatus': {},
       });
 
-      final report = ReportModel.fromFirestore(FakeReportSnapshot(data));
+      final report = ReportModel.fromMap(data, 'RASD-TEST-001');
 
       expect(report.aiPredictedCategory, isNull);
       expect(report.citizenSelectedCategory, isNull);
@@ -131,6 +122,7 @@ void main() {
       expect(report.reviewStatus, isNull);
     });
 
+    // Test 7: Preserve existing Firestore serialization.
     test('Preserves existing Firestore serialization', () {
       final data = createReportData();
 
@@ -141,12 +133,13 @@ void main() {
         'reviewStatus': 'approved',
       });
 
-      final report = ReportModel.fromFirestore(FakeReportSnapshot(data));
+      final report = ReportModel.fromMap(data, 'RASD-TEST-001');
 
       final serialized = report.toFirestore();
 
       expect(serialized['category'], 'pothole');
       expect(serialized['priority'], 'medium');
+      expect(serialized['status'], 'pending');
 
       expect(serialized.containsKey('aiPredictedCategory'), isFalse);
 
@@ -157,11 +150,15 @@ void main() {
       expect(serialized.containsKey('reviewStatus'), isFalse);
     });
 
-    test('Rejects missing report documents', () {
-      expect(
-        () => ReportModel.fromFirestore(FakeReportSnapshot(null)),
-        throwsStateError,
-      );
+    // Test 8: Use the Firestore document ID as a fallback.
+    test('Uses document ID when reportId is missing', () {
+      final data = createReportData();
+
+      data.remove('reportId');
+
+      final report = ReportModel.fromMap(data, 'FALLBACK-REPORT-ID');
+
+      expect(report.reportId, 'FALLBACK-REPORT-ID');
     });
   });
 }

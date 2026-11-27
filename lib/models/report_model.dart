@@ -8,12 +8,12 @@ class ReportModel {
   // Existing report category.
   final String category;
 
-  // Proposed Week 3 classification fields.
+  // Week 3 classification fields.
   final String? aiPredictedCategory;
   final String? citizenSelectedCategory;
   final String? officialCategory;
 
-  // Proposed employee review field.
+  // Employee review status.
   final String? reviewStatus;
 
   final String description;
@@ -42,6 +42,7 @@ class ReportModel {
     this.imageUrl,
   });
 
+  // Preserve the existing Firestore serialization.
   Map<String, dynamic> toFirestore() {
     return {
       'reportId': reportId,
@@ -58,6 +59,7 @@ class ReportModel {
     };
   }
 
+  // Safely read optional string values.
   static String? _readOptionalString(dynamic value) {
     if (value is! String) {
       return null;
@@ -68,6 +70,7 @@ class ReportModel {
     return trimmedValue.isEmpty ? null : trimmedValue;
   }
 
+  // Convert a real Firestore document into ReportModel.
   factory ReportModel.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> document,
   ) {
@@ -77,15 +80,23 @@ class ReportModel {
       throw StateError('Report document does not exist.');
     }
 
+    return ReportModel.fromMap(data, document.id);
+  }
+
+  // Convert raw report data into ReportModel.
+  // This also allows unit testing without mocking DocumentSnapshot.
+  factory ReportModel.fromMap(Map<String, dynamic> data, String documentId) {
     return ReportModel(
-      reportId: data['reportId'] as String? ?? document.id,
+      reportId: data['reportId'] as String? ?? documentId,
+
       citizenId: data['citizenId'] as String,
+
       municipalityId: data['municipalityId'] as String?,
 
-      // Existing category.
+      // Existing report category.
       category: data['category'] as String,
 
-      // Read separate categories when available.
+      // Independent classification fields.
       aiPredictedCategory: _readOptionalString(data['aiPredictedCategory']),
 
       citizenSelectedCategory: _readOptionalString(
@@ -94,15 +105,21 @@ class ReportModel {
 
       officialCategory: _readOptionalString(data['officialCategory']),
 
-      // Read employee review status when available.
+      // Employee review decision.
       reviewStatus: _readOptionalString(data['reviewStatus']),
 
       description: data['description'] as String,
+
       status: data['status'] as String,
+
       priority: data['priority'] as String,
+
       latitude: (data['latitude'] as num).toDouble(),
+
       longitude: (data['longitude'] as num).toDouble(),
+
       createdAt: (data['createdAt'] as Timestamp).toDate(),
+
       imageUrl: data['imageUrl'] as String?,
     );
   }

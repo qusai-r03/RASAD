@@ -22,10 +22,27 @@ class ReportDetailsScreen extends StatefulWidget {
 class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
   final ReportService _reportService = ReportService();
 
-  String _previewReviewStatus = 'pending';
+  // Keep classification writes disabled by default.
+  static const bool _useFirebaseEmulators = bool.fromEnvironment(
+    'USE_FIREBASE_EMULATORS',
+    defaultValue: false,
+  );
+
+  static const bool _classificationWritesRequested = bool.fromEnvironment(
+    'ENABLE_CLASSIFICATION_WRITES',
+    defaultValue: false,
+  );
+
+  static const bool _enableClassificationWrites =
+      _useFirebaseEmulators && _classificationWritesRequested;
+  String? _previewReviewStatus;
   String? _previewOfficialCategory;
 
+  bool _isUpdatingReport = false;
+
   late Future<ReportModel?> _reportFuture;
+
+  bool get _isEmployee => roleService.getCurrentUserRole() == UserRole.employee;
 
   @override
   void initState() {
@@ -39,33 +56,113 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
     super.didUpdateWidget(oldWidget);
 
     if (oldWidget.reportId != widget.reportId) {
-      _previewReviewStatus = 'pending';
+      _previewReviewStatus = null;
       _previewOfficialCategory = null;
 
       _reportFuture = _reportService.getReportById(widget.reportId);
     }
   }
 
-  // Save the actual report priority to Firebase.
-  Future<void> _savePriority({
-    required String category,
-    required String priority,
-  }) async {
-    if (roleService.getCurrentUserRole() != UserRole.employee) {
-      throw StateError('Only employees can update report priority.');
-    }
-
-    final reportId = widget.reportId;
-
-    await _reportService.updateReportPriority(
-      reportId: reportId,
-      priority: priority,
-    );
-
+  // Refresh report data after a successful update.
+  void _refreshReport(String reportId) {
     if (!mounted || widget.reportId != reportId) return;
 
     setState(() {
       _reportFuture = _reportService.getReportById(reportId);
+    });
+  }
+
+  // Execute one report update at a time.
+  Future<void> _performReportUpdate(Future<void> Function() operation) async {
+    if (!_isEmployee) {
+      throw StateError('Only employees can update reports.');
+    }
+
+    if (_isUpdatingReport) {
+      throw StateError('Another report update is in progress.');
+    }
+
+    _isUpdatingReport = true;
+
+    try {
+      await operation();
+    } finally {
+      _isUpdatingReport = false;
+    }
+  }
+
+  // Save actual report priority.
+  Future<void> _savePriority({
+    required String category,
+    required String priority,
+  }) async {
+    final reportId = widget.reportId;
+
+    await _performReportUpdate(() async {
+      await _reportService.updateReportPriority(
+        reportId: reportId,
+        priority: priority,
+      );
+
+      _refreshReport(reportId);
+    });
+  }
+
+  // Save official category.
+  Future<void> _saveOfficialCategory(String category) async {
+    if (!_isEmployee) {
+      throw StateError('Only employees can update official categories.');
+    }
+
+    // Preserve preview behavior until integration is enabled.
+    if (!_enableClassificationWrites) {
+      if (!mounted) return;
+
+      setState(() {
+        _previewOfficialCategory = category;
+      });
+
+      return;
+    }
+
+    final reportId = widget.reportId;
+
+    await _performReportUpdate(() async {
+      await _reportService.updateOfficialCategory(
+        reportId: reportId,
+        officialCategory: category,
+      );
+
+      _refreshReport(reportId);
+    });
+  }
+
+  // Save employee review decision.
+  Future<void> _saveReviewStatus(String reviewStatus) async {
+    if (!_isEmployee) {
+      throw StateError('Only employees can review reports.');
+    }
+
+    // Preserve preview behavior until integration is enabled.
+    if (!_enableClassificationWrites) {
+      if (!mounted) return;
+
+      setState(() {
+        _previewReviewStatus = reviewStatus;
+      });
+
+      return;
+    }
+
+    final reportId = widget.reportId;
+
+    await _performReportUpdate(() async {
+      await _reportService.updateReviewStatus(
+        reportId: reportId,
+        reviewStatus: reviewStatus,
+      );
+
+      _refreshReport(reportId);
     });
   }
 
@@ -95,7 +192,18 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
   Widget _buildReportDetails(ReportModel report) {
     final imageUrl = report.imageUrl;
 
-    final isEmployee = roleService.getCurrentUserRole() == UserRole.employee;
+    final officialCategory = _enableClassificationWrites
+        ? report.officialCategory
+        : _previewOfficialCategory ?? report.officialCategory;
+
+    final reviewStatus = _enableClassificationWrites
+        ? report.reviewStatus ?? 'pending'
+        : _previewReviewStatus ?? report.reviewStatus ?? 'pending';
+
+    final hasClassificationData =
+        report.aiPredictedCategory != null ||
+        report.citizenSelectedCategory != null ||
+        report.officialCategory != null;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -133,7 +241,10 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _detailRow('Category', report.category),
+                _detailRow(
+                  'Category',
+                  report.officialCategory ?? report.category,
+                ),
                 _detailRow('Status', report.status),
                 _detailRow('Priority', report.priority),
                 _detailRow('Created', _formatDate(report.createdAt)),
@@ -166,7 +277,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
         ),
 
         // Employee-only sections.
-        if (isEmployee) ...[
+        if (_isEmployee) ...[
           const SizedBox(height: 24),
 
           // 1. AI category comparison.
@@ -175,22 +286,25 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
             citizenSelection: report.citizenSelectedCategory,
             officialCategory: report.officialCategory,
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              'The report currently contains a legacy category. '
-              'AI prediction, citizen selection, and official category '
-              'will appear when their separate values are available.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+
+          if (!hasClassificationData)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                'The report currently contains a legacy category. '
+                'AI prediction, citizen selection, and official '
+                'category will appear when their separate '
+                'values are available.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
             ),
-          ),
 
           const SizedBox(height: 16),
 
           // 2. Actual Firebase priority editing.
           EmployeeReportEditingPanel(
             key: ValueKey('${report.reportId}-${report.priority}'),
-            initialCategory: report.category,
+            initialCategory: report.officialCategory ?? report.category,
             initialPriority: report.priority,
             allowCategoryEditing: false,
             onSave: _savePriority,
@@ -198,24 +312,16 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
 
           const SizedBox(height: 16),
 
-          // 3. Official category correction preview.
+          // 3. Official category correction.
           OfficialCategoryEditor(
             key: ValueKey('category-${report.reportId}'),
-            initialCategory: _previewOfficialCategory,
-            categories: const [
-              'pothole',
-              'garbage',
-              'street_light',
-              'water_leak',
-            ],
-            onCategoryChanged: (category) {
-              setState(() {
-                _previewOfficialCategory = category;
-              });
-            },
+            initialCategory: officialCategory,
+            categories: ReportService.allowedCategories.toList(),
+            isPreview: !_enableClassificationWrites,
+            onCategoryChanged: _saveOfficialCategory,
           ),
 
-          if (_previewOfficialCategory != null)
+          if (!_enableClassificationWrites && _previewOfficialCategory != null)
             Padding(
               padding: const EdgeInsets.all(12),
               child: Text(
@@ -229,28 +335,26 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
 
           const SizedBox(height: 16),
 
-          // 4. Employee review preview warning.
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              'Preview only - Review decisions are not saved to Firebase.',
-              style: TextStyle(color: Colors.orange),
+          // 4. Preview warning.
+          if (!_enableClassificationWrites)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                'Preview only - Review decisions are not '
+                'saved to Firebase.',
+                style: TextStyle(color: Colors.orange),
+              ),
             ),
-          ),
 
           const SizedBox(height: 8),
 
-          // 5. Employee approval and rejection preview.
+          // 5. Employee review.
           EmployeeReportReviewPanel(
             key: ValueKey('review-${report.reportId}'),
-            initialReviewStatus: _previewReviewStatus,
-            onReview: (newStatus) async {
-              setState(() {
-                _previewReviewStatus = newStatus;
-              });
-            },
+            initialReviewStatus: reviewStatus,
+            isPreview: !_enableClassificationWrites,
+            onReview: _saveReviewStatus,
           ),
-
           const SizedBox(height: 24),
         ],
       ],
@@ -260,7 +364,19 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Report Details'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('Report Details'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Refresh report',
+            onPressed: () {
+              _refreshReport(widget.reportId);
+            },
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
       body: FutureBuilder<ReportModel?>(
         future: _reportFuture,
         builder: (context, snapshot) {
@@ -271,7 +387,22 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
 
           // Error state.
           if (snapshot.hasError) {
-            return const Center(child: Text('Unable to load report details.'));
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Unable to load report details.'),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      _refreshReport(widget.reportId);
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
           }
 
           final report = snapshot.data;
